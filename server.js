@@ -24,7 +24,7 @@ app.use(session({
 }));
 
 // ── SSE broadcast registry ────────────────────────────────────────────────────
-const schoolClients = new Map(); // schoolId → Set of res objects
+const schoolClients = new Map();
 
 function broadcast(schoolId, payload) {
   const clients = schoolClients.get(schoolId);
@@ -34,19 +34,6 @@ function broadcast(schoolId, payload) {
     try { res.write(msg); } catch (e) { clients.delete(res); }
   }
 }
-
-app.get('/api/events', requireAuth, (req, res) => {
-  const schoolId = req.session.schoolId;
-  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-  res.flushHeaders();
-  res.write('data: {"type":"connected"}\n\n');
-
-  if (!schoolClients.has(schoolId)) schoolClients.set(schoolId, new Set());
-  schoolClients.get(schoolId).add(res);
-
-  const heartbeat = setInterval(() => { try { res.write(':ping\n\n'); } catch (e) {} }, 25000);
-  req.on('close', () => { clearInterval(heartbeat); schoolClients.get(schoolId)?.delete(res); });
-});
 
 const requireAuth = (req, res, next) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -58,6 +45,17 @@ const requireRole = (...roles) => (req, res, next) => {
 };
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+
+app.get('/api/events', requireAuth, (req, res) => {
+  const schoolId = req.session.schoolId;
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  res.flushHeaders();
+  res.write('data: {"type":"connected"}\n\n');
+  if (!schoolClients.has(schoolId)) schoolClients.set(schoolId, new Set());
+  schoolClients.get(schoolId).add(res);
+  const heartbeat = setInterval(() => { try { res.write(':ping\n\n'); } catch (e) {} }, 25000);
+  req.on('close', () => { clearInterval(heartbeat); schoolClients.get(schoolId)?.delete(res); });
+});
 
 app.post('/auth/login', async (req, res) => {
   try {
