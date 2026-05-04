@@ -315,7 +315,7 @@ app.get('/api/admin/overview', requireAuth, requireRole('admin'), async (req, re
     query('SELECT COUNT(*) FROM students WHERE school_id=$1', [schoolId]),
     query("SELECT COUNT(*) FROM users WHERE school_id=$1 AND role='teacher'", [schoolId]),
     query("SELECT COUNT(DISTINCT student_id) FROM attendance WHERE date=$1 AND status='absent'", [today]),
-    query('SELECT COUNT(*) FROM alerts WHERE created_at::date=$1::date', [today]),
+    query('SELECT COUNT(DISTINCT student_id) FROM alerts WHERE created_at::date=$1::date', [today]),
     query('SELECT * FROM sync_log WHERE school_id=$1 ORDER BY created_at DESC LIMIT 10', [schoolId]),
   ]);
 
