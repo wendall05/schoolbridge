@@ -212,9 +212,11 @@ app.get('/api/audit-log', requireAuth, async (req, res) => {
 app.get('/api/messages', requireAuth, async (req, res) => {
   const r = await query(`
     SELECT m.*, u.name as from_name, u.role as from_role,
+           t2.name as to_name,
            s.name as student_name
     FROM messages m
     JOIN users u ON u.id = m.from_id
+    LEFT JOIN users t2 ON t2.id = m.to_id
     LEFT JOIN students s ON s.id = m.student_id
     WHERE m.to_id=$1 OR m.from_id=$1
     ORDER BY m.created_at DESC LIMIT 50
@@ -239,14 +241,16 @@ app.put('/api/messages/:id/read', requireAuth, async (req, res) => {
 // ── Teacher: Attendance ───────────────────────────────────────────────────────
 
 app.get('/api/teacher/sections', requireAuth, requireRole('teacher','admin'), async (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
   const r = await query(`
     SELECT sec.id, sec.name, sec.subject, sec.grade,
-           COUNT(ss.student_id) as student_count
+           COUNT(ss.student_id) as student_count,
+           EXISTS(SELECT 1 FROM attendance a WHERE a.section_id=sec.id AND a.date=$3) as submitted_today
     FROM sections sec
     LEFT JOIN section_students ss ON ss.section_id = sec.id
     WHERE sec.teacher_id=$1 OR $2='admin'
     GROUP BY sec.id ORDER BY sec.name
-  `, [req.session.userId, req.session.role]);
+  `, [req.session.userId, req.session.role, today]);
   res.json(r.rows);
 });
 
@@ -279,6 +283,14 @@ app.post('/api/teacher/attendance', requireAuth, requireRole('teacher','admin'),
       .catch(console.error);
   }
   res.json({ ok: true, count: records.length });
+});
+
+app.get('/api/teacher/behavior-history/:studentId', requireAuth, requireRole('teacher','admin'), async (req, res) => {
+  const r = await query(`
+    SELECT type, note, created_at FROM behavior_events
+    WHERE student_id=$1 ORDER BY created_at DESC LIMIT 5
+  `, [req.params.studentId]);
+  res.json(r.rows);
 });
 
 app.post('/api/teacher/behavior', requireAuth, requireRole('teacher','admin'), async (req, res) => {
@@ -368,7 +380,7 @@ app.post('/api/shadow/ingest', requireAuth, requireRole('parent'), async (req, r
 app.get('/api/admin/student/:id', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const stuId = req.params.id;
-    const [student, attendance, grades, behavior, alerts] = await Promise.all([
+    const [student, attendance, grades, behavior, alerts, parents] = await Promise.all([
       query('SELECT * FROM students WHERE id=$1', [stuId]),
       query(`SELECT a.date, a.status, s.name as section_name
              FROM attendance a LEFT JOIN sections s ON s.id=a.section_id
@@ -382,6 +394,9 @@ app.get('/api/admin/student/:id', requireAuth, requireRole('admin'), async (req,
       query(`SELECT al.*, u.name as parent_name
              FROM alerts al LEFT JOIN users u ON u.id=al.parent_id
              WHERE al.student_id=$1 ORDER BY al.created_at DESC LIMIT 10`, [stuId]),
+      query(`SELECT u.id, u.name FROM users u
+             JOIN parent_students ps ON ps.parent_id=u.id
+             WHERE ps.student_id=$1`, [stuId]),
     ]);
     const s = student.rows[0];
     if (!s) return res.status(404).json({ error: 'Not found' });
@@ -393,6 +408,7 @@ app.get('/api/admin/student/:id', requireAuth, requireRole('admin'), async (req,
       grades: grades.rows,
       behavior: behavior.rows,
       alerts: alerts.rows,
+      parents: parents.rows,
       stats: { absences, missing },
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

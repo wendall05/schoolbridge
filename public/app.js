@@ -2,7 +2,40 @@
 const S = {
   user: null, page: 'login', params: {}, history: [],
   feed: null, messages: null, sections: null, adminData: null, adminStudents: null,
+  lang: localStorage.getItem('sb_lang') || navigator.language.split('-')[0] || 'en',
 };
+
+// ── i18n ──────────────────────────────────────────────────────────────────────
+const LANGS = { en:'English', es:'Español', zh:'中文', ht:'Kreyòl', vi:'Tiếng Việt', ar:'العربية', ko:'한국어', pt:'Português' };
+const TR = {
+  en:{ signin:'Sign In',email:'Email',password:'Password',home:'Home',messages:'Messages',privacy:'Privacy',attendance:'Attendance',behavior:'Behavior',overview:'Overview',students:'Students',present:'Present',absent:'Absent',tardy:'Tardy',excused:'Excused',recentGrades:'Recent Grades',upcomingDue:'Upcoming Due',behaviorNotes:'Behavior Notes',actionRequired:'Action Required',missing:'MISSING',takeAttendance:'Take Attendance',submitAttendance:'Submit Attendance',logBehavior:'Log Behavior Note',section:'Section',student:'Student',note:'Note',saveNote:'Save Note',positive:'⭐ Positive',neutral:'📝 Neutral',concern:'⚠️ Concern',newMessage:'New Message',send:'Send',noMessages:'No messages yet',dataPrivacy:'Data Privacy',runCheck:'Run Intervention Check',absentToday:'Absent Today',alertsToday:'Alerts Today',teachers:'Teachers',tapReply:'↩ Tap to reply',interventionRunning:'Intervention engine running…',behaviorSaved:'Behavior note saved',selectStudentNote:'Select a student and write a note',noRecipient:'No recipient — tap a teacher name from your feed first.',interventionComplete:'Intervention check complete',newAlerts:'new alerts generated',alreadySubmitted:'✓ Submitted today',messageParent:'Message Parent',sendReply:'Send Reply',attendanceSaved:'Attendance submitted ✓' },
+  es:{ signin:'Iniciar sesión',email:'Correo electrónico',password:'Contraseña',home:'Inicio',messages:'Mensajes',privacy:'Privacidad',attendance:'Asistencia',behavior:'Conducta',overview:'Resumen',students:'Estudiantes',present:'Presente',absent:'Ausente',tardy:'Tarde',excused:'Justificado',recentGrades:'Calificaciones recientes',upcomingDue:'Próximas entregas',behaviorNotes:'Notas de conducta',actionRequired:'Acción requerida',missing:'FALTANTE',takeAttendance:'Tomar asistencia',submitAttendance:'Enviar asistencia',logBehavior:'Registrar conducta',section:'Sección',student:'Estudiante',note:'Nota',saveNote:'Guardar nota',positive:'⭐ Positivo',neutral:'📝 Neutral',concern:'⚠️ Preocupación',newMessage:'Nuevo mensaje',send:'Enviar',noMessages:'Sin mensajes aún',dataPrivacy:'Privacidad de datos',runCheck:'Ejecutar verificación',absentToday:'Ausentes hoy',alertsToday:'Alertas de hoy',teachers:'Maestros',tapReply:'↩ Toca para responder',interventionRunning:'Motor de intervención ejecutando…',behaviorSaved:'Nota guardada',selectStudentNote:'Selecciona un estudiante y escribe una nota',noRecipient:'Sin destinatario — toca el nombre de un maestro primero.',interventionComplete:'Verificación completa',newAlerts:'nuevas alertas generadas',alreadySubmitted:'✓ Enviada hoy',messageParent:'Mensaje al padre',sendReply:'Enviar respuesta',attendanceSaved:'Asistencia enviada ✓' },
+  ht:{ signin:'Konekte',email:'Imèl',password:'Modpas',home:'Lakay',messages:'Mesaj',privacy:'Vi prive',attendance:'Prezans',behavior:'Konpòtman',overview:'Apèsi',students:'Elèv',present:'Prezan',absent:'Absan',tardy:'An reta',excused:'Eskize',recentGrades:'Nòt resan',upcomingDue:'Travay k ap vini',behaviorNotes:'Nòt konpòtman',actionRequired:'Aksyon obligatwa',missing:'MANKE',takeAttendance:'Pran prezans',submitAttendance:'Soumèt prezans',logBehavior:'Anrejistre nòt',section:'Seksyon',student:'Elèv',note:'Nòt',saveNote:'Sove nòt',positive:'⭐ Pozitif',neutral:'📝 Nèt',concern:'⚠️ Enkyetid',newMessage:'Nouvo mesaj',send:'Voye',noMessages:'Pa gen mesaj ankò',dataPrivacy:'Vi prive done',runCheck:'Kouri verifikasyon',absentToday:'Absan jodi a',alertsToday:'Alèt jodi a',teachers:'Pwofesè',tapReply:'↩ Klike pou reponn',interventionRunning:'Motè entèvansyon ap kouri…',behaviorSaved:'Nòt sove',selectStudentNote:'Chwazi yon elèv epi ekri yon nòt',noRecipient:'Pa gen destinatè — peze non pwofesè dabò.',interventionComplete:'Verifikasyon konplè',newAlerts:'nouvo alèt jenere',alreadySubmitted:'✓ Soumèt jodi a',messageParent:'Mesaj paran',sendReply:'Voye repons',attendanceSaved:'Prezans soumèt ✓' },
+  vi:{ signin:'Đăng nhập',email:'Email',password:'Mật khẩu',home:'Trang chủ',messages:'Tin nhắn',privacy:'Quyền riêng tư',attendance:'Điểm danh',behavior:'Hành vi',overview:'Tổng quan',students:'Học sinh',present:'Có mặt',absent:'Vắng mặt',tardy:'Trễ',excused:'Có phép',recentGrades:'Điểm gần đây',upcomingDue:'Bài sắp hạn',behaviorNotes:'Ghi chú hành vi',actionRequired:'Cần hành động',missing:'THIẾU',takeAttendance:'Điểm danh',submitAttendance:'Gửi điểm danh',logBehavior:'Ghi chú hành vi',section:'Lớp',student:'Học sinh',note:'Ghi chú',saveNote:'Lưu ghi chú',positive:'⭐ Tích cực',neutral:'📝 Bình thường',concern:'⚠️ Đáng lo',newMessage:'Tin nhắn mới',send:'Gửi',noMessages:'Chưa có tin nhắn',dataPrivacy:'Quyền riêng tư',runCheck:'Kiểm tra can thiệp',absentToday:'Vắng mặt hôm nay',alertsToday:'Cảnh báo hôm nay',teachers:'Giáo viên',tapReply:'↩ Nhấn để trả lời',interventionRunning:'Đang kiểm tra…',behaviorSaved:'Đã lưu ghi chú',selectStudentNote:'Chọn học sinh và viết ghi chú',noRecipient:'Không có người nhận — nhấn tên giáo viên trước.',interventionComplete:'Kiểm tra hoàn tất',newAlerts:'cảnh báo mới',alreadySubmitted:'✓ Đã gửi hôm nay',messageParent:'Nhắn phụ huynh',sendReply:'Gửi trả lời',attendanceSaved:'Đã gửi điểm danh ✓' },
+  ar:{ signin:'تسجيل الدخول',email:'البريد الإلكتروني',password:'كلمة المرور',home:'الرئيسية',messages:'الرسائل',privacy:'الخصوصية',attendance:'الحضور',behavior:'السلوك',overview:'نظرة عامة',students:'الطلاب',present:'حاضر',absent:'غائب',tardy:'متأخر',excused:'بعذر',recentGrades:'الدرجات الأخيرة',upcomingDue:'المهام القادمة',behaviorNotes:'ملاحظات السلوك',actionRequired:'إجراء مطلوب',missing:'مفقود',takeAttendance:'أخذ الحضور',submitAttendance:'إرسال الحضور',logBehavior:'تسجيل ملاحظة',section:'الفصل',student:'الطالب',note:'ملاحظة',saveNote:'حفظ',positive:'⭐ إيجابي',neutral:'📝 محايد',concern:'⚠️ مقلق',newMessage:'رسالة جديدة',send:'إرسال',noMessages:'لا رسائل',dataPrivacy:'خصوصية البيانات',runCheck:'فحص التدخل',absentToday:'الغائبون اليوم',alertsToday:'تنبيهات اليوم',teachers:'المعلمون',tapReply:'↩ اضغط للرد',interventionRunning:'جارٍ التحقق…',behaviorSaved:'تم حفظ الملاحظة',selectStudentNote:'اختر طالباً واكتب ملاحظة',noRecipient:'لا يوجد مستلم — اضغط اسم المعلم أولاً.',interventionComplete:'اكتمل الفحص',newAlerts:'تنبيهات جديدة',alreadySubmitted:'✓ تم الإرسال اليوم',messageParent:'مراسلة ولي الأمر',sendReply:'إرسال الرد',attendanceSaved:'تم إرسال الحضور ✓' },
+  zh:{ signin:'登录',email:'电子邮件',password:'密码',home:'主页',messages:'消息',privacy:'隐私',attendance:'考勤',behavior:'行为',overview:'概览',students:'学生',present:'出席',absent:'缺席',tardy:'迟到',excused:'请假',recentGrades:'近期成绩',upcomingDue:'即将到期',behaviorNotes:'行为记录',actionRequired:'需要行动',missing:'缺交',takeAttendance:'点名',submitAttendance:'提交考勤',logBehavior:'记录行为',section:'班级',student:'学生',note:'备注',saveNote:'保存',positive:'⭐ 积极',neutral:'📝 中性',concern:'⚠️ 关注',newMessage:'新消息',send:'发送',noMessages:'暂无消息',dataPrivacy:'数据隐私',runCheck:'运行干预检查',absentToday:'今日缺席',alertsToday:'今日警报',teachers:'教师',tapReply:'↩ 点击回复',interventionRunning:'干预引擎运行中…',behaviorSaved:'行为记录已保存',selectStudentNote:'请选择学生并填写备注',noRecipient:'无收件人 — 请先点击教师姓名。',interventionComplete:'干预检查完成',newAlerts:'条新警报',alreadySubmitted:'✓ 今日已提交',messageParent:'联系家长',sendReply:'发送回复',attendanceSaved:'考勤已提交 ✓' },
+  ko:{ signin:'로그인',email:'이메일',password:'비밀번호',home:'홈',messages:'메시지',privacy:'개인정보',attendance:'출석',behavior:'행동',overview:'개요',students:'학생',present:'출석',absent:'결석',tardy:'지각',excused:'공결',recentGrades:'최근 성적',upcomingDue:'제출 예정',behaviorNotes:'행동 메모',actionRequired:'조치 필요',missing:'미제출',takeAttendance:'출석 확인',submitAttendance:'출석 제출',logBehavior:'행동 메모 기록',section:'학급',student:'학생',note:'메모',saveNote:'저장',positive:'⭐ 긍정',neutral:'📝 중립',concern:'⚠️ 우려',newMessage:'새 메시지',send:'보내기',noMessages:'메시지 없음',dataPrivacy:'데이터 개인정보',runCheck:'개입 확인 실행',absentToday:'오늘 결석',alertsToday:'오늘 알림',teachers:'교사',tapReply:'↩ 답장하려면 탭하세요',interventionRunning:'개입 엔진 실행 중…',behaviorSaved:'행동 메모 저장됨',selectStudentNote:'학생을 선택하고 메모를 작성하세요',noRecipient:'수신자 없음 — 먼저 교사 이름을 탭하세요.',interventionComplete:'개입 확인 완료',newAlerts:'새 알림 생성됨',alreadySubmitted:'✓ 오늘 제출됨',messageParent:'학부모에게 메시지',sendReply:'답장 보내기',attendanceSaved:'출석 제출됨 ✓' },
+  pt:{ signin:'Entrar',email:'E-mail',password:'Senha',home:'Início',messages:'Mensagens',privacy:'Privacidade',attendance:'Frequência',behavior:'Comportamento',overview:'Visão geral',students:'Alunos',present:'Presente',absent:'Ausente',tardy:'Atrasado',excused:'Justificado',recentGrades:'Notas recentes',upcomingDue:'Próximas entregas',behaviorNotes:'Notas de comportamento',actionRequired:'Ação necessária',missing:'FALTANDO',takeAttendance:'Registrar frequência',submitAttendance:'Enviar frequência',logBehavior:'Registrar comportamento',section:'Turma',student:'Aluno',note:'Nota',saveNote:'Salvar',positive:'⭐ Positivo',neutral:'📝 Neutro',concern:'⚠️ Preocupação',newMessage:'Nova mensagem',send:'Enviar',noMessages:'Nenhuma mensagem ainda',dataPrivacy:'Privacidade de dados',runCheck:'Executar verificação',absentToday:'Ausentes hoje',alertsToday:'Alertas hoje',teachers:'Professores',tapReply:'↩ Toque para responder',interventionRunning:'Motor de intervenção executando…',behaviorSaved:'Nota salva',selectStudentNote:'Selecione um aluno e escreva uma nota',noRecipient:'Sem destinatário — toque no nome de um professor primeiro.',interventionComplete:'Verificação concluída',newAlerts:'novos alertas gerados',alreadySubmitted:'✓ Enviado hoje',messageParent:'Mensagem ao responsável',sendReply:'Enviar resposta',attendanceSaved:'Frequência enviada ✓' },
+};
+function t(key) { return (TR[S.lang] || TR.en)[key] || TR.en[key] || key; }
+function setLang(l) { S.lang = l; localStorage.setItem('sb_lang', l); document.documentElement.dir = l==='ar'?'rtl':'ltr'; render(); }
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:calc(100% - 32px);max-width:400px';
+    document.body.appendChild(container);
+  }
+  const colors = { success:'background:#16a34a;color:#fff', error:'background:#dc2626;color:#fff', info:'background:#2563eb;color:#fff' };
+  const el = document.createElement('div');
+  el.style.cssText = `${colors[type]||colors.info};padding:12px 16px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.2);pointer-events:auto;text-align:center`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
 
 // ── API ───────────────────────────────────────────────────────────────────────
 const api = async (method, path, body) => {
@@ -35,8 +68,8 @@ function goBack() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const esc = s => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const fmt = d => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
-const fmtFull = d => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+const fmt = d => d ? new Date(d).toLocaleDateString(S.lang||'en',{month:'short',day:'numeric'}) : '—';
+const fmtFull = d => d ? new Date(d).toLocaleDateString(S.lang||'en',{month:'short',day:'numeric',year:'numeric'}) : '—';
 const pct = (s,m) => m > 0 ? Math.round(s/m*100) : null;
 
 const scoreColor = (s,m) => {
@@ -85,8 +118,18 @@ function riskLabel(absences, missing) {
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   const root = document.getElementById('app');
-  if (!S.user) { root.innerHTML = renderLogin(); return; }
-  root.innerHTML = renderShell();
+  try {
+    if (!S.user) { root.innerHTML = renderLogin(); return; }
+    root.innerHTML = renderShell();
+  } catch (e) {
+    console.error('Render error:', e);
+    root.innerHTML = `<div style="padding:32px;text-align:center;font-family:sans-serif">
+      <p style="font-size:32px;margin-bottom:8px">⚠️</p>
+      <p style="font-weight:600;margin-bottom:4px">Something went wrong</p>
+      <p style="color:#64748b;font-size:14px;margin-bottom:16px">${e.message}</p>
+      <button onclick="location.reload()" style="background:#2563eb;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px">Reload</button>
+    </div>`;
+  }
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -107,17 +150,17 @@ function renderLogin() {
         <div id="login-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
         <form onsubmit="doLogin(event)">
           <div class="mb-4">
-            <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1">${t('email')}</label>
             <input id="login-email" type="email" required placeholder="you@school.edu"
               class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
           </div>
           <div class="mb-6">
-            <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1">${t('password')}</label>
             <input id="login-password" type="password" required placeholder="••••••••"
               class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
           </div>
-          <button type="submit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors">
-            Sign In
+          <button type="submit" id="login-btn" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors">
+            ${t('signin')}
           </button>
         </form>
 
@@ -155,7 +198,15 @@ function renderLogin() {
           </div>
         </div>
       </div>
-      <p class="text-center text-blue-300 text-xs mt-5">Lincoln Middle School · Syracuse City SD · Demo</p>
+        <!-- Language picker -->
+        <div class="mt-5 pt-4 border-t border-slate-100">
+          <p class="text-xs text-slate-400 text-center mb-2">Language / Idioma / 语言</p>
+          <div class="flex flex-wrap justify-center gap-1.5">
+            ${Object.entries(LANGS).map(([k,v]) => `<button onclick="setLang('${k}')" class="text-xs px-2.5 py-1 rounded-full border transition-colors ${S.lang===k?'bg-blue-600 text-white border-blue-600':'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}">${v}</button>`).join('')}
+          </div>
+        </div>
+      </div>
+      <p class="text-center text-blue-300 text-xs mt-4">Lincoln Middle School · Syracuse City SD · Demo</p>
     </div>
   </div>`;
 }
@@ -163,8 +214,10 @@ function renderLogin() {
 async function doLogin(e) {
   e.preventDefault();
   const err = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
   try {
     err.classList.add('hidden');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
     const user = await POST('/auth/login', {
       email: document.getElementById('login-email').value,
       password: document.getElementById('login-password').value,
@@ -175,6 +228,7 @@ async function doLogin(e) {
   } catch (e) {
     err.textContent = e.message;
     err.classList.remove('hidden');
+    if (btn) { btn.disabled = false; btn.textContent = t('signin'); }
   }
 }
 
@@ -186,28 +240,31 @@ function quickLogin(email, pw) {
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
 function renderShell() {
+  const unreadMsgs = (S.messages||[]).filter(m => !m.read_at && m.to_id === S.user?.id).length;
+  const msgIcon = 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z';
   const navItems = {
     parent: [
-      { page:'feed',     label:'Home',     icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-      { page:'messages', label:'Messages', icon:'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
-      { page:'privacy',  label:'Privacy',  icon:'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+      { page:'feed',     label:t('home'),     icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+      { page:'messages', label:t('messages'), icon:msgIcon, badge:unreadMsgs },
+      { page:'privacy',  label:t('privacy'),  icon:'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
     ],
     teacher: [
-      { page:'attendance', label:'Attendance', icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
-      { page:'behavior',   label:'Behavior',   icon:'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
-      { page:'messages',   label:'Messages',   icon:'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
+      { page:'attendance', label:t('attendance'), icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+      { page:'behavior',   label:t('behavior'),   icon:'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
+      { page:'messages',   label:t('messages'),   icon:msgIcon, badge:unreadMsgs },
     ],
     admin: [
-      { page:'admin',          label:'Overview',  icon:'M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-1a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1h-4a1 1 0 01-1-1v-5z' },
-      { page:'admin-students', label:'Students',  icon:'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-      { page:'messages',       label:'Messages',  icon:'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
+      { page:'admin',          label:t('overview'), icon:'M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-1a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1h-4a1 1 0 01-1-1v-5z' },
+      { page:'admin-students', label:t('students'), icon:'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+      { page:'messages',       label:t('messages'), icon:msgIcon, badge:unreadMsgs },
     ],
   };
 
   const items = navItems[S.user.role] || [];
   const navHtml = items.map(n => `
-    <button onclick="nav('${n.page}')" class="flex flex-col items-center gap-1 flex-1 py-2 ${S.page===n.page||S.page.startsWith(n.page+'-')?'text-blue-600':'text-slate-400 hover:text-slate-600'} transition-colors">
+    <button onclick="nav('${n.page}')" class="relative flex flex-col items-center gap-1 flex-1 py-2 ${S.page===n.page||S.page.startsWith(n.page+'-')?'text-blue-600':'text-slate-400 hover:text-slate-600'} transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="${n.icon}"/></svg>
+      ${n.badge ? `<span class="absolute top-1 right-1/4 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center" style="font-size:10px">${n.badge}</span>` : ''}
       <span class="text-xs font-medium">${n.label}</span>
     </button>
   `).join('');
@@ -244,6 +301,9 @@ function renderShell() {
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           <span class="text-xs text-slate-400 hidden sm:inline">Live</span>
         </div>
+        <select onchange="setLang(this.value)" class="text-xs bg-transparent border-none text-slate-400 cursor-pointer focus:outline-none" title="Language">
+          ${Object.entries(LANGS).map(([k,v])=>`<option value="${k}"${S.lang===k?' selected':''}>${v}</option>`).join('')}
+        </select>
         <span class="text-xs text-slate-400">${esc(S.user.name)}</span>
         <button onclick="doLogout()" class="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded">Out</button>
       </div>
@@ -480,29 +540,33 @@ function renderMessages() {
       ${unread ? `<span class="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">${unread} new</span>` : ''}
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
-      ${S.messages.length ? S.messages.map(m => `
-      <div onclick="openMessage(${m.id}, ${m.from_id}, '${esc(m.from_name)}', ${m.student_id||'null'}, '${esc(m.student_name||'')}', ${!m.read_at && m.to_id === S.user?.id})"
-        class="px-4 py-4 border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50 transition-colors ${!m.read_at && m.to_id === S.user?.id ? 'bg-blue-50 border-l-4 border-l-blue-400' : ''}">
+      ${S.messages.length ? S.messages.map(m => {
+        const isMine = m.from_id === S.user?.id;
+        const isUnread = !m.read_at && m.to_id === S.user?.id;
+        return `
+      <div ${isMine ? '' : `onclick="openMessage(${m.id}, ${m.from_id}, '${esc(m.from_name)}', ${m.student_id||'null'}, '${esc(m.student_name||'')}', ${isUnread})"`}
+        class="px-4 py-4 border-b border-slate-50 last:border-0 ${isMine ? 'bg-blue-50' : `cursor-pointer hover:bg-slate-50 transition-colors ${isUnread ? 'bg-sky-50 border-l-4 border-l-blue-400' : ''}`}">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold text-slate-800">${esc(m.from_name)}</span>
-            ${m.from_role ? `<span class="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded capitalize">${m.from_role}</span>` : ''}
-            ${!m.read_at && m.to_id === S.user?.id ? '<span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>' : ''}
+            <span class="text-sm font-semibold ${isMine ? 'text-blue-700' : 'text-slate-800'}">${isMine ? 'You → ' + esc(m.to_name||'') : esc(m.from_name)}</span>
+            ${!isMine && m.from_role ? `<span class="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded capitalize">${m.from_role}</span>` : ''}
+            ${isUnread ? '<span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>' : ''}
           </div>
           <span class="text-xs text-slate-400">${fmt(m.created_at)}</span>
         </div>
         ${m.student_name ? `<p class="text-xs text-blue-600 font-medium mb-1">Re: ${esc(m.student_name)}</p>` : ''}
         <p class="text-sm text-slate-600 leading-relaxed">${esc(m.content)}</p>
-        <p class="text-xs text-blue-500 mt-2 font-medium">↩ Tap to reply</p>
-      </div>`).join('') : `<div class="px-4 py-10 text-center text-sm text-slate-400">No messages yet</div>`}
+        ${isMine ? '<p class="text-xs text-slate-400 mt-1.5">✓ Sent</p>' : `<p class="text-xs text-blue-500 mt-1.5 font-medium">${t('tapReply')}</p>`}
+      </div>`;
+      }).join('') : `<div class="px-4 py-10 text-center text-sm text-slate-400">${t('noMessages')}</div>`}
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
       <p class="text-sm font-semibold text-slate-700 mb-3">New Message</p>
       ${S.params?.prefill ? `<p class="text-xs text-blue-600 font-medium mb-2">To: ${esc(S.params.prefill.to_name)} · Re: ${esc(S.params.prefill.student_name)}</p>` : ''}
       <textarea id="msg-content" rows="3" placeholder="Type your message..."
         class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"></textarea>
-      <button onclick="sendMessage()" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
-        Send
+      <button id="send-msg-btn" onclick="sendMessage()" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+        ${t('send')}
       </button>
     </div>
   </div>`;
@@ -513,14 +577,17 @@ async function sendMessage() {
   if (!content) return;
   const prefill = S.params?.prefill;
   const to_id = prefill?.to_id || (S.user?.role === 'parent' ? null : 1);
-  if (!to_id) return alert('No recipient — use the message button next to a teacher name.');
+  if (!to_id) { showToast(t('noRecipient'), 'error'); return; }
+  const btn = document.getElementById('send-msg-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try {
     await POST('/api/messages', { to_id, student_id: prefill?.student_id || null, content });
     document.getElementById('msg-content').value = '';
     S.messages = null;
     S._msgsLoaded = false;
+    showToast(t('send') + ' ✓', 'success');
     render();
-  } catch (e) { alert(e.message); }
+  } catch (e) { showToast(e.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = t('send'); } }
 }
 
 async function openMessage(id, fromId, fromName, studentId, studentName, isUnread) {
@@ -586,13 +653,18 @@ function renderPrivacy() {
 }
 
 async function setTier(tier) {
+  const current = S.user?.consent_tier || 3;
+  if (tier < current) {
+    const purgeMsg = tier < 2 ? 'This will permanently delete all behavior notes from your feed.' : 'This will permanently delete shadow app data (Remind, ClassDojo) from your feed.';
+    if (!confirm(`${purgeMsg}\n\nContinue?`)) return;
+  }
   try {
     await PUT('/api/consent', { tier });
     S.user.consent_tier = tier;
-    S.feed = null;
-    S._feedLoaded = false;
+    S.feed = null; S._feedLoaded = false;
+    showToast('Privacy settings updated', 'success');
     render();
-  } catch (e) { alert(e.message); }
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function loadAuditLog() {
@@ -617,18 +689,19 @@ function renderAttendance() {
 
   return `
   <div>
-    <h2 class="text-lg font-bold mb-1">Take Attendance</h2>
-    <p class="text-sm text-slate-400 mb-5">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</p>
+    <h2 class="text-lg font-bold mb-1">${t('takeAttendance')}</h2>
+    <p class="text-sm text-slate-400 mb-5">${new Date().toLocaleDateString(S.lang||'en',{weekday:'long',month:'long',day:'numeric'})}</p>
     <div class="space-y-3">
       ${S.sections.map(sec => `
       <button onclick="loadAttendanceSheet(${sec.id},'${esc(sec.name)}')"
-        class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-blue-200 hover:shadow-md transition-all">
+        class="w-full bg-white rounded-2xl p-4 border ${sec.submitted_today?'border-emerald-200 bg-emerald-50':'border-slate-100'} shadow-sm text-left hover:border-blue-200 hover:shadow-md transition-all">
         <div class="flex items-center justify-between">
           <div>
             <p class="font-semibold text-slate-800">${esc(sec.name)}</p>
             <p class="text-sm text-slate-400">${sec.student_count} students enrolled</p>
+            ${sec.submitted_today ? `<p class="text-xs text-emerald-600 font-semibold mt-0.5">${t('alreadySubmitted')}</p>` : ''}
           </div>
-          <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <svg class="w-5 h-5 ${sec.submitted_today?'text-emerald-400':'text-slate-300'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${sec.submitted_today?'M5 13l4 4L19 7':'M9 5l7 7-7 7'}"/></svg>
         </div>
       </button>`).join('') || `<div class="text-center py-10 text-slate-400 text-sm">No sections assigned</div>`}
     </div>
@@ -678,9 +751,9 @@ function renderAttendanceSheet() {
         </div>
       </div>`).join('')}
     </div>
-    <button onclick="submitAttendance(${sectionId})"
+    <button id="att-submit-btn" onclick="submitAttendance(${sectionId})"
       class="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-md">
-      Submit Attendance · ${students.length} students
+      ${t('submitAttendance')} · ${students.length} students
     </button>
   </div>`;
 }
@@ -691,6 +764,8 @@ function setAttendance(stuId, status) {
 }
 
 async function submitAttendance(sectionId) {
+  const btn = document.getElementById('att-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
   const today = new Date().toISOString().split('T')[0];
   const records = Object.entries(S.params.records).map(([student_id, status]) => ({
     student_id: parseInt(student_id), section_id: sectionId, date: today, status
@@ -698,9 +773,10 @@ async function submitAttendance(sectionId) {
   try {
     await POST('/api/teacher/attendance', { records });
     S.params = {};
-    alert(`Attendance submitted for ${records.length} students. Intervention engine running...`);
+    S.sections = null; S._sectionsLoaded = false;
+    showToast(t('attendanceSaved'), 'success');
     render();
-  } catch (e) { alert(e.message); }
+  } catch (e) { showToast(e.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = t('submitAttendance'); } }
 }
 
 // ── Teacher: Behavior ─────────────────────────────────────────────────────────
@@ -726,8 +802,8 @@ function renderBehaviorForm() {
         </select>
       </div>
       <div class="mb-4">
-        <label class="block text-sm font-medium text-slate-700 mb-1">Student</label>
-        <select id="beh-student" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <label class="block text-sm font-medium text-slate-700 mb-1">${t('student')}</label>
+        <select id="beh-student" onchange="loadBehHistory(this.value)" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Select student...</option>
         </select>
       </div>
@@ -746,9 +822,12 @@ function renderBehaviorForm() {
         <textarea id="beh-note" rows="3" placeholder="Describe the behavior..."
           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
       </div>
-      <button onclick="submitBehavior()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors">
-        Save Note
+      <button id="beh-submit-btn" onclick="submitBehavior()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors">
+        ${t('saveNote')}
       </button>
+      <div id="beh-history" class="mt-4 space-y-2 hidden">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recent Notes for This Student</p>
+      </div>
     </div>
   </div>`;
 }
@@ -771,16 +850,35 @@ async function loadBehStudents() {
   sel.innerHTML = '<option value="">Select student...</option>' + students.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
 }
 
+async function loadBehHistory(stuId) {
+  const hist = document.getElementById('beh-history');
+  if (!hist || !stuId) return;
+  try {
+    const data = await GET(`/api/teacher/behavior-history/${stuId}`);
+    if (!data.length) { hist.classList.add('hidden'); return; }
+    hist.classList.remove('hidden');
+    hist.innerHTML = `<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Recent Notes</p>` +
+      data.slice(0,3).map(b => `<div class="flex items-start gap-2 bg-slate-50 rounded-lg p-2.5">
+        <span class="text-base flex-shrink-0">${b.type==='positive'?'⭐':b.type==='concern'?'⚠️':'📝'}</span>
+        <div><p class="text-xs text-slate-700">${esc(b.note)}</p><p class="text-xs text-slate-400 mt-0.5">${fmt(b.created_at)}</p></div>
+      </div>`).join('');
+  } catch (_) {}
+}
+
 async function submitBehavior() {
   const student_id = document.getElementById('beh-student')?.value;
   const section_id = document.getElementById('beh-section')?.value;
   const note = document.getElementById('beh-note')?.value?.trim();
-  if (!student_id || !note) return alert('Select a student and write a note');
+  if (!student_id || !note) { showToast(t('selectStudentNote'), 'error'); return; }
+  const btn = document.getElementById('beh-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try {
     await POST('/api/teacher/behavior', { student_id: parseInt(student_id), section_id: parseInt(section_id), type: _behType, note });
     document.getElementById('beh-note').value = '';
-    alert('Behavior note saved. Parent alert generated if intervention threshold met.');
-  } catch (e) { alert(e.message); }
+    if (btn) { btn.disabled = false; btn.textContent = t('saveNote'); }
+    showToast(t('behaviorSaved') + ' · ' + t('interventionRunning'), 'success');
+    loadBehHistory(student_id);
+  } catch (e) { showToast(e.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = t('saveNote'); } }
 }
 
 // ── Admin: Overview ───────────────────────────────────────────────────────────
@@ -858,12 +956,15 @@ function renderAdmin() {
 }
 
 async function runSync() {
+  const btn = document.querySelector('[onclick="runSync()"]');
+  if (btn) { btn.disabled = true; btn.textContent = t('interventionRunning'); }
   try {
     const r = await POST('/api/admin/sync');
-    S._adminLoaded = false;
-    alert(`Intervention check complete.\n${r.alerts_created} new alert${r.alerts_created !== 1 ? 's' : ''} generated.`);
+    S.adminData = null; S._adminLoaded = false;
+    S.adminStudents = null; S._stuListLoaded = false;
+    showToast(`${t('interventionComplete')} · ${r.alerts_created} ${t('newAlerts')}`, 'success');
     render();
-  } catch (e) { alert(e.message); }
+  } catch (e) { showToast(e.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = '⚡ ' + t('runCheck'); } }
 }
 
 // ── Admin: Students ────────────────────────────────────────────────────────────
@@ -932,7 +1033,7 @@ function renderStudentDetail() {
   const data = S.params?.studentDetail;
   if (!data) return `<div class="text-slate-400 text-center py-10">Loading...</div>`;
 
-  const { student, attendance, grades, behavior, alerts, stats } = data;
+  const { student, attendance, grades, behavior, alerts, parents, stats } = data;
   const risk = riskLabel(stats.absences, stats.missing);
   const subjects = [...new Set(grades.map(g => g.subject).filter(Boolean))];
 
@@ -945,6 +1046,12 @@ function renderStudentDetail() {
       </div>
       <span class="text-sm font-bold px-3 py-1.5 rounded-full border ${risk.cls}">${risk.label}</span>
     </div>
+
+    ${(parents||[]).map(p => `
+    <button onclick="nav('messages',{prefill:{to_id:${p.id},to_name:'${esc(p.name)}',student_id:${student.id},student_name:'${esc(student.name)}'}})"
+      class="w-full mb-4 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+      💬 ${t('messageParent')}: ${esc(p.name)}
+    </button>`).join('')}
 
     <!-- Stats row -->
     <div class="grid grid-cols-3 gap-2 mb-5">
