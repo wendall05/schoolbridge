@@ -481,16 +481,19 @@ function renderMessages() {
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
       ${S.messages.length ? S.messages.map(m => `
-      <div class="px-4 py-4 border-b border-slate-50 last:border-0 ${!m.read_at && m.to_id === S.user?.id ? 'bg-blue-50 border-l-4 border-l-blue-400' : ''}">
+      <div onclick="openMessage(${m.id}, ${m.from_id}, '${esc(m.from_name)}', ${m.student_id||'null'}, '${esc(m.student_name||'')}', ${!m.read_at && m.to_id === S.user?.id})"
+        class="px-4 py-4 border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50 transition-colors ${!m.read_at && m.to_id === S.user?.id ? 'bg-blue-50 border-l-4 border-l-blue-400' : ''}">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <span class="text-sm font-semibold text-slate-800">${esc(m.from_name)}</span>
             ${m.from_role ? `<span class="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded capitalize">${m.from_role}</span>` : ''}
+            ${!m.read_at && m.to_id === S.user?.id ? '<span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>' : ''}
           </div>
           <span class="text-xs text-slate-400">${fmt(m.created_at)}</span>
         </div>
         ${m.student_name ? `<p class="text-xs text-blue-600 font-medium mb-1">Re: ${esc(m.student_name)}</p>` : ''}
         <p class="text-sm text-slate-600 leading-relaxed">${esc(m.content)}</p>
+        <p class="text-xs text-blue-500 mt-2 font-medium">↩ Tap to reply</p>
       </div>`).join('') : `<div class="px-4 py-10 text-center text-sm text-slate-400">No messages yet</div>`}
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
@@ -518,6 +521,17 @@ async function sendMessage() {
     S._msgsLoaded = false;
     render();
   } catch (e) { alert(e.message); }
+}
+
+async function openMessage(id, fromId, fromName, studentId, studentName, isUnread) {
+  if (isUnread) {
+    await PUT(`/api/messages/${id}/read`, {}).catch(e => console.error('Mark read error:', e));
+    const msg = S.messages?.find(m => m.id === id);
+    if (msg) msg.read_at = new Date().toISOString();
+  }
+  S.params = { ...S.params, prefill: { to_id: fromId, to_name: fromName, student_id: studentId || null, student_name: studentName || '' } };
+  render();
+  setTimeout(() => document.getElementById('msg-content')?.focus(), 50);
 }
 
 // ── Privacy ───────────────────────────────────────────────────────────────────
