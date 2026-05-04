@@ -323,6 +323,39 @@ app.post('/api/shadow/ingest', requireAuth, requireRole('parent'), async (req, r
   res.json({ ok: true, parsed_type });
 });
 
+app.get('/api/admin/student/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const stuId = req.params.id;
+    const [student, attendance, grades, behavior, alerts] = await Promise.all([
+      query('SELECT * FROM students WHERE id=$1', [stuId]),
+      query(`SELECT a.date, a.status, s.name as section_name
+             FROM attendance a LEFT JOIN sections s ON s.id=a.section_id
+             WHERE a.student_id=$1 ORDER BY a.date DESC LIMIT 20`, [stuId]),
+      query(`SELECT g.*, s.name as section_name, s.subject
+             FROM grades g LEFT JOIN sections s ON s.id=g.section_id
+             WHERE g.student_id=$1 ORDER BY g.due_date DESC LIMIT 30`, [stuId]),
+      query(`SELECT b.*, u.name as teacher_name
+             FROM behavior_events b LEFT JOIN users u ON u.id=b.teacher_id
+             WHERE b.student_id=$1 ORDER BY b.created_at DESC LIMIT 10`, [stuId]),
+      query(`SELECT al.*, u.name as parent_name
+             FROM alerts al LEFT JOIN users u ON u.id=al.parent_id
+             WHERE al.student_id=$1 ORDER BY al.created_at DESC LIMIT 10`, [stuId]),
+    ]);
+    const s = student.rows[0];
+    if (!s) return res.status(404).json({ error: 'Not found' });
+    const absences = attendance.rows.filter(a => a.status === 'absent').length;
+    const missing = grades.rows.filter(g => g.missing).length;
+    res.json({
+      student: s,
+      attendance: attendance.rows,
+      grades: grades.rows,
+      behavior: behavior.rows,
+      alerts: alerts.rows,
+      stats: { absences, missing },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Clever OAuth ──────────────────────────────────────────────────────────────
 
 app.get('/auth/clever', (req, res) => {
@@ -359,7 +392,8 @@ cron.schedule('*/15 7-16 * * 1-5', async () => {
 async function start() {
   await initDb();
   if (process.env.LOAD_SANDBOX === 'true') {
-    await loadSandboxData({ query });
+    const schoolId = await loadSandboxData({ query });
+    if (schoolId) await runInterventionCheck(schoolId).catch(console.error);
   }
   app.listen(PORT, () => console.log(`SchoolBridge running on :${PORT}`));
 }
