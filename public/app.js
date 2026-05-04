@@ -92,7 +92,7 @@ function render() {
 // ── Login ─────────────────────────────────────────────────────────────────────
 function renderLogin() {
   return `
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700 p-4">
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 p-4">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur mb-4">
@@ -101,7 +101,7 @@ function renderLogin() {
           </svg>
         </div>
         <h1 class="text-3xl font-bold text-white tracking-tight">SchoolBridge</h1>
-        <p class="text-brand-200 mt-1 text-sm">Unified Parent Engagement Hub</p>
+        <p class="text-blue-200 mt-1 text-sm">Unified Parent Engagement Hub</p>
       </div>
       <div class="bg-white rounded-2xl shadow-2xl p-8">
         <div id="login-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
@@ -109,14 +109,14 @@ function renderLogin() {
           <div class="mb-4">
             <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
             <input id="login-email" type="email" required placeholder="you@school.edu"
-              class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"/>
+              class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
           </div>
           <div class="mb-6">
             <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
             <input id="login-password" type="password" required placeholder="••••••••"
-              class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"/>
+              class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
           </div>
-          <button type="submit" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm transition-colors">
+          <button type="submit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors">
             Sign In
           </button>
         </form>
@@ -125,29 +125,29 @@ function renderLogin() {
         <div class="mt-6 pt-6 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Demo Accounts</p>
           <div class="space-y-2">
-            <button onclick="quickLogin('parent@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-brand-50 border border-slate-200 hover:border-brand-200 text-left transition-colors group">
+            <button onclick="quickLogin('parent@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
               <div class="flex items-center gap-3">
                 <span class="text-xl">👩‍👦</span>
                 <div>
-                  <p class="text-sm font-semibold text-slate-700 group-hover:text-brand-700">Sandra Johnson — Parent</p>
+                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Sandra Johnson — Parent</p>
                   <p class="text-xs text-slate-400">Marcus has CRITICAL alerts · 3 missing assignments</p>
                 </div>
               </div>
             </button>
-            <button onclick="quickLogin('thompson@lincoln.edu','teacher123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-brand-50 border border-slate-200 hover:border-brand-200 text-left transition-colors group">
+            <button onclick="quickLogin('thompson@lincoln.edu','teacher123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
               <div class="flex items-center gap-3">
                 <span class="text-xl">👨‍🏫</span>
                 <div>
-                  <p class="text-sm font-semibold text-slate-700 group-hover:text-brand-700">Mr. Thompson — Math Teacher</p>
+                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Mr. Thompson — Math Teacher</p>
                   <p class="text-xs text-slate-400">Period 1 · 5 students · take attendance</p>
                 </div>
               </div>
             </button>
-            <button onclick="quickLogin('admin@lincoln.edu','admin123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-brand-50 border border-slate-200 hover:border-brand-200 text-left transition-colors group">
+            <button onclick="quickLogin('admin@lincoln.edu','admin123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
               <div class="flex items-center gap-3">
                 <span class="text-xl">🏫</span>
                 <div>
-                  <p class="text-sm font-semibold text-slate-700 group-hover:text-brand-700">Principal Davis — Admin</p>
+                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Principal Davis — Admin</p>
                   <p class="text-xs text-slate-400">School overview · 5 students · sync log</p>
                 </div>
               </div>
@@ -155,7 +155,7 @@ function renderLogin() {
           </div>
         </div>
       </div>
-      <p class="text-center text-brand-300 text-xs mt-5">Lincoln Middle School · Syracuse City SD · Demo</p>
+      <p class="text-center text-blue-300 text-xs mt-5">Lincoln Middle School · Syracuse City SD · Demo</p>
     </div>
   </div>`;
 }
@@ -205,7 +205,7 @@ function renderShell() {
 
   const items = navItems[S.user.role] || [];
   const navHtml = items.map(n => `
-    <button onclick="nav('${n.page}')" class="flex flex-col items-center gap-1 flex-1 py-2 ${S.page===n.page||S.page.startsWith(n.page+'-')?'text-brand-600':'text-slate-400 hover:text-slate-600'} transition-colors">
+    <button onclick="nav('${n.page}')" class="flex flex-col items-center gap-1 flex-1 py-2 ${S.page===n.page||S.page.startsWith(n.page+'-')?'text-blue-600':'text-slate-400 hover:text-slate-600'} transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="${n.icon}"/></svg>
       <span class="text-xs font-medium">${n.label}</span>
     </button>
@@ -232,7 +232,7 @@ function renderShell() {
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>` : ''}
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
+          <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
           </div>
           <span class="font-semibold text-slate-800 text-sm">SchoolBridge</span>
@@ -440,7 +440,7 @@ function renderFeed() {
         <span class="text-xs text-blue-400">${fmt(a.created_at)}</span>
       </div>`).join('')}
 
-      <button onclick="nav('messages')" class="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm text-slate-500 hover:border-brand-300 hover:text-brand-600 transition-colors mt-1">
+      <button onclick="nav('messages')" class="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors mt-1">
         💬 Message ${student.name.split(' ')[0]}'s teacher
       </button>
     </div>`;
@@ -465,11 +465,11 @@ function renderMessages() {
   <div>
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-bold">Messages</h2>
-      ${unread ? `<span class="bg-brand-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">${unread} new</span>` : ''}
+      ${unread ? `<span class="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">${unread} new</span>` : ''}
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
       ${S.messages.length ? S.messages.map(m => `
-      <div class="px-4 py-4 border-b border-slate-50 last:border-0 ${!m.read_at && m.to_id === S.user?.id ? 'bg-brand-50 border-l-4 border-l-brand-400' : ''}">
+      <div class="px-4 py-4 border-b border-slate-50 last:border-0 ${!m.read_at && m.to_id === S.user?.id ? 'bg-blue-50 border-l-4 border-l-blue-400' : ''}">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <span class="text-sm font-semibold text-slate-800">${esc(m.from_name)}</span>
@@ -477,15 +477,15 @@ function renderMessages() {
           </div>
           <span class="text-xs text-slate-400">${fmt(m.created_at)}</span>
         </div>
-        ${m.student_name ? `<p class="text-xs text-brand-600 font-medium mb-1">Re: ${esc(m.student_name)}</p>` : ''}
+        ${m.student_name ? `<p class="text-xs text-blue-600 font-medium mb-1">Re: ${esc(m.student_name)}</p>` : ''}
         <p class="text-sm text-slate-600 leading-relaxed">${esc(m.content)}</p>
       </div>`).join('') : `<div class="px-4 py-10 text-center text-sm text-slate-400">No messages yet</div>`}
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
       <p class="text-sm font-semibold text-slate-700 mb-3">Send a message</p>
       <textarea id="msg-content" rows="3" placeholder="Type your message..."
-        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none mb-3"></textarea>
-      <button onclick="sendMessage()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors">
+        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"></textarea>
+      <button onclick="sendMessage()" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
         Send Message
       </button>
     </div>
@@ -520,34 +520,34 @@ function renderPrivacy() {
             </div>
             <p class="text-xs text-slate-500">Attendance, grades, and assignments from your school's SIS. Required for app to function.</p>
           </div>
-          <div class="w-10 h-6 bg-brand-600 rounded-full flex-shrink-0 mt-0.5"></div>
+          <div class="w-10 h-6 bg-blue-600 rounded-full flex-shrink-0 mt-0.5"></div>
         </div>
       </div>
-      <div class="bg-white rounded-2xl p-5 border ${tier>=2?'border-brand-100':'border-slate-100'} shadow-sm">
+      <div class="bg-white rounded-2xl p-5 border ${tier>=2?'border-blue-100':'border-slate-100'} shadow-sm">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1">
             <span class="text-sm font-bold text-slate-800">Tier 2 — Behavioral Data</span>
             <p class="text-xs text-slate-500 mt-1">Behavior notes from ClassDojo, teacher observations, counselor flags. Optional.</p>
             ${tier < 2 ? '<p class="text-xs text-amber-600 mt-1 font-medium">⚠️ Disabled — behavior notes hidden from your feed</p>' : '<p class="text-xs text-emerald-600 mt-1 font-medium">✓ Enabled</p>'}
           </div>
-          <button onclick="setTier(${tier >= 2 ? 1 : 2})" class="w-10 h-6 rounded-full flex-shrink-0 mt-0.5 transition-all ${tier>=2?'bg-brand-600':'bg-slate-200'}"></button>
+          <button onclick="setTier(${tier >= 2 ? 1 : 2})" class="w-10 h-6 rounded-full flex-shrink-0 mt-0.5 transition-all ${tier>=2?'bg-blue-600':'bg-slate-200'}"></button>
         </div>
       </div>
-      <div class="bg-white rounded-2xl p-5 border ${tier>=3?'border-brand-100':'border-slate-100'} shadow-sm">
+      <div class="bg-white rounded-2xl p-5 border ${tier>=3?'border-blue-100':'border-slate-100'} shadow-sm">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1">
             <span class="text-sm font-bold text-slate-800">Tier 3 — Shadow Apps</span>
             <p class="text-xs text-slate-500 mt-1">Aggregates Remind, ClassDojo, Seesaw, and other apps you authorize. Optional.</p>
             ${tier < 3 ? '<p class="text-xs text-amber-600 mt-1 font-medium">⚠️ Disabled — shadow app data purged</p>' : '<p class="text-xs text-emerald-600 mt-1 font-medium">✓ Enabled</p>'}
           </div>
-          <button onclick="setTier(${tier >= 3 ? 2 : 3})" class="w-10 h-6 rounded-full flex-shrink-0 mt-0.5 transition-all ${tier>=3?'bg-brand-600':'bg-slate-200'}"></button>
+          <button onclick="setTier(${tier >= 3 ? 2 : 3})" class="w-10 h-6 rounded-full flex-shrink-0 mt-0.5 transition-all ${tier>=3?'bg-blue-600':'bg-slate-200'}"></button>
         </div>
       </div>
     </div>
     <div class="mt-4 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-slate-700">Data Audit Log</h3>
-        <button onclick="loadAuditLog()" class="text-xs text-brand-600 hover:underline">Load →</button>
+        <button onclick="loadAuditLog()" class="text-xs text-blue-600 hover:underline">Load →</button>
       </div>
       <div id="audit-log" class="space-y-1.5"></div>
     </div>
@@ -586,7 +586,7 @@ function renderAttendance() {
     <div class="space-y-3">
       ${S.sections.map(sec => `
       <button onclick="loadAttendanceSheet(${sec.id},'${esc(sec.name)}')"
-        class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-brand-200 hover:shadow-md transition-all">
+        class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-blue-200 hover:shadow-md transition-all">
         <div class="flex items-center justify-between">
           <div>
             <p class="font-semibold text-slate-800">${esc(sec.name)}</p>
@@ -643,7 +643,7 @@ function renderAttendanceSheet() {
       </div>`).join('')}
     </div>
     <button onclick="submitAttendance(${sectionId})"
-      class="w-full py-3.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm transition-colors shadow-md">
+      class="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-md">
       Submit Attendance · ${students.length} students
     </button>
   </div>`;
@@ -680,14 +680,14 @@ function renderBehaviorForm() {
     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
       <div class="mb-4">
         <label class="block text-sm font-medium text-slate-700 mb-1">Section</label>
-        <select id="beh-section" onchange="loadBehStudents()" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <select id="beh-section" onchange="loadBehStudents()" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Select section...</option>
           ${S.sections.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
         </select>
       </div>
       <div class="mb-4">
         <label class="block text-sm font-medium text-slate-700 mb-1">Student</label>
-        <select id="beh-student" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <select id="beh-student" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Select student...</option>
         </select>
       </div>
@@ -704,9 +704,9 @@ function renderBehaviorForm() {
       <div class="mb-5">
         <label class="block text-sm font-medium text-slate-700 mb-1">Note</label>
         <textarea id="beh-note" rows="3" placeholder="Describe the behavior..."
-          class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"></textarea>
+          class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
       </div>
-      <button onclick="submitBehavior()" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm transition-colors">
+      <button onclick="submitBehavior()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors">
         Save Note
       </button>
     </div>
@@ -771,7 +771,7 @@ function renderAdmin() {
     <!-- Key metrics -->
     <div class="grid grid-cols-2 gap-3 mb-5">
       ${[
-        { label:'Students Enrolled', value: d.students, color:'text-brand-600', bg:'bg-brand-50' },
+        { label:'Students Enrolled', value: d.students, color:'text-blue-600', bg:'bg-blue-50' },
         { label:'Teachers',           value: d.teachers, color:'text-slate-700', bg:'bg-slate-50' },
         { label:'Absent Today',        value: d.absent_today, color:'text-red-600', bg:'bg-red-50' },
         { label:'Alerts Today',        value: d.alerts_today, color:'text-amber-600', bg:'bg-amber-50' },
@@ -782,12 +782,12 @@ function renderAdmin() {
       </div>`).join('')}
     </div>
 
-    <button onclick="runSync()" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm mb-5 transition-colors shadow-sm">
+    <button onclick="runSync()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mb-5 transition-colors shadow-sm">
       ⚡ Run Intervention Check Now
     </button>
 
     <!-- Quick nav -->
-    <button onclick="nav('admin-students')" class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-brand-200 transition-colors mb-4 flex items-center justify-between">
+    <button onclick="nav('admin-students')" class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-blue-200 transition-colors mb-4 flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-800">Student Risk Dashboard</p>
         <p class="text-sm text-slate-400">View all students, risk scores, and alerts</p>
@@ -834,7 +834,7 @@ function renderAdminStudents() {
   <div>
     <h2 class="text-lg font-bold mb-4">Student Risk Dashboard</h2>
     <input oninput="filterStudents(this.value)" placeholder="Search students..."
-      class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 mb-4"/>
+      class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"/>
     <div id="student-list" class="space-y-2">
       ${students.map(s => {
         const risk = riskLabel(parseInt(s.absences), parseInt(s.missing_assignments));
@@ -900,7 +900,7 @@ function renderStudentDetail() {
       ${[
         { label:'Absences', value: stats.absences, color: stats.absences >= 3 ? 'text-red-600' : 'text-slate-700' },
         { label:'Missing', value: stats.missing, color: stats.missing >= 2 ? 'text-amber-600' : 'text-slate-700' },
-        { label:'Alerts', value: alerts.length, color: alerts.length > 0 ? 'text-brand-600' : 'text-slate-700' },
+        { label:'Alerts', value: alerts.length, color: alerts.length > 0 ? 'text-blue-600' : 'text-slate-700' },
       ].map(s => `
       <div class="bg-white rounded-xl p-3 border border-slate-100 text-center">
         <div class="text-2xl font-black ${s.color}">${s.value}</div>
@@ -921,7 +921,7 @@ function renderStudentDetail() {
           <div class="flex items-center gap-2 mb-1">
             ${priorityBadge(a.priority)}
             <span class="text-xs text-slate-400">${fmt(a.created_at)}</span>
-            ${a.read_at ? '<span class="text-xs text-slate-300">· read</span>' : '<span class="text-xs text-brand-500 font-medium">· unread</span>'}
+            ${a.read_at ? '<span class="text-xs text-slate-300">· read</span>' : '<span class="text-xs text-blue-500 font-medium">· unread</span>'}
           </div>
           <p class="text-sm text-slate-700">${esc(a.message)}</p>
           <p class="text-xs text-slate-400 mt-1">Parent: ${esc(a.parent_name)}</p>
@@ -995,7 +995,7 @@ function renderStudentDetail() {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function spinner() {
-  return `<div class="flex items-center justify-center py-20"><div class="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin"></div></div>`;
+  return `<div class="flex items-center justify-center py-20"><div class="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div></div>`;
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
