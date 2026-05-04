@@ -23,6 +23,31 @@ app.use(session({
   cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' },
 }));
 
+// ── SSE broadcast registry ────────────────────────────────────────────────────
+const schoolClients = new Map(); // schoolId → Set of res objects
+
+function broadcast(schoolId, payload) {
+  const clients = schoolClients.get(schoolId);
+  if (!clients) return;
+  const msg = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const res of clients) {
+    try { res.write(msg); } catch (e) { clients.delete(res); }
+  }
+}
+
+app.get('/api/events', requireAuth, (req, res) => {
+  const schoolId = req.session.schoolId;
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  res.flushHeaders();
+  res.write('data: {"type":"connected"}\n\n');
+
+  if (!schoolClients.has(schoolId)) schoolClients.set(schoolId, new Set());
+  schoolClients.get(schoolId).add(res);
+
+  const heartbeat = setInterval(() => { try { res.write(':ping\n\n'); } catch (e) {} }, 25000);
+  req.on('close', () => { clearInterval(heartbeat); schoolClients.get(schoolId)?.delete(res); });
+});
+
 const requireAuth = (req, res, next) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
   next();
@@ -239,9 +264,10 @@ app.post('/api/teacher/attendance', requireAuth, requireRole('teacher','admin'),
       ON CONFLICT (student_id, date, section_id) DO UPDATE SET status=$4
     `, [r.student_id, r.section_id, r.date, r.status]);
   }
-  // Run intervention check after attendance logged
   if (req.session.schoolId) {
-    runInterventionCheck(req.session.schoolId).catch(console.error);
+    runInterventionCheck(req.session.schoolId)
+      .then(() => broadcast(req.session.schoolId, { type: 'attendance' }))
+      .catch(console.error);
   }
   res.json({ ok: true, count: records.length });
 });
@@ -252,7 +278,9 @@ app.post('/api/teacher/behavior', requireAuth, requireRole('teacher','admin'), a
     INSERT INTO behavior_events (student_id, section_id, teacher_id, type, note, source, tier)
     VALUES ($1,$2,$3,$4,$5,'direct',2) RETURNING *
   `, [student_id, section_id, req.session.userId, type, note]);
-  runInterventionCheck(req.session.schoolId).catch(console.error);
+  runInterventionCheck(req.session.schoolId)
+    .then(() => broadcast(req.session.schoolId, { type: 'behavior' }))
+    .catch(console.error);
   res.json(r.rows[0]);
 });
 
@@ -301,6 +329,7 @@ app.get('/api/admin/students', requireAuth, requireRole('admin'), async (req, re
 app.post('/api/admin/sync', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const alerts = await runInterventionCheck(req.session.schoolId);
+    broadcast(req.session.schoolId, { type: 'sync' });
     res.json({ ok: true, alerts_created: alerts.length, alerts });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

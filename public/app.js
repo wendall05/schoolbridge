@@ -170,6 +170,7 @@ async function doLogin(e) {
       password: document.getElementById('login-password').value,
     });
     S.user = user;
+    connectSSE();
     nav(user.role === 'parent' ? 'feed' : user.role === 'teacher' ? 'attendance' : 'admin');
   } catch (e) {
     err.textContent = e.message;
@@ -258,7 +259,8 @@ function renderShell() {
 
 async function doLogout() {
   await POST('/auth/logout');
-  S.user = null; S.page = 'login'; S.history = []; S.feed = [];
+  if (_sse) { _sse.close(); _sse = null; }
+  S.user = null; S.page = 'login'; S.history = []; S.feed = null;
   render();
 }
 
@@ -1027,12 +1029,33 @@ function spinner() {
   return `<div class="flex items-center justify-center py-20"><div class="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div></div>`;
 }
 
+// ── Live updates via SSE ──────────────────────────────────────────────────────
+let _sse = null;
+function connectSSE() {
+  if (_sse) _sse.close();
+  _sse = new EventSource('/api/events');
+  _sse.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'connected') return;
+      // Invalidate all data caches so next render fetches fresh
+      S.feed = null; S._feedLoaded = false;
+      S.adminData = null; S._adminLoaded = false;
+      S.adminStudents = null; S._stuListLoaded = false;
+      S.messages = null; S._msgsLoaded = false;
+      render();
+    } catch (err) { console.error('SSE parse error:', err); }
+  };
+  _sse.onerror = () => { _sse.close(); _sse = null; setTimeout(connectSSE, 5000); };
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 render(); // show login immediately while auth check runs
 (async () => {
   try {
     const user = await GET('/auth/me');
     S.user = user;
+    connectSSE();
     nav(user.role === 'parent' ? 'feed' : user.role === 'teacher' ? 'attendance' : 'admin');
   } catch (e) {
     console.error('Boot error:', e);
