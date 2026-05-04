@@ -576,9 +576,13 @@ async function loadAuditLog() {
 
 // ── Teacher: Attendance ───────────────────────────────────────────────────────
 function renderAttendance() {
-  if (!S._sectionsLoaded) {
+  if (S.sections.length) {
+    // fall through to render
+  } else if (!S._sectionsLoaded) {
     S._sectionsLoaded = true;
-    GET('/api/teacher/sections').then(data => { S.sections = data; S._sectionsLoaded = false; render(); }).catch(console.error);
+    GET('/api/teacher/sections').then(data => { S.sections = data; render(); }).catch(e => { console.error('Sections error:', e); S._sectionsLoaded = false; });
+    return spinner();
+  } else {
     return spinner();
   }
   if (S.params.sectionId) return renderAttendanceSheet();
