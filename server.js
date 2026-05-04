@@ -280,18 +280,21 @@ app.get('/api/admin/overview', requireAuth, requireRole('admin'), async (req, re
 });
 
 app.get('/api/admin/students', requireAuth, requireRole('admin'), async (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
   const r = await query(`
     SELECT s.id, s.name, s.grade,
            COUNT(DISTINCT a.id) FILTER (WHERE a.status='absent') as absences,
            COUNT(DISTINCT g.id) FILTER (WHERE g.missing=true) as missing_assignments,
-           MAX(al.created_at) as last_alert
+           MAX(al.created_at) as last_alert,
+           BOOL_OR(a2.status='absent') as absent_today
     FROM students s
     LEFT JOIN attendance a ON a.student_id=s.id AND a.date >= NOW()-INTERVAL '30 days'
+    LEFT JOIN attendance a2 ON a2.student_id=s.id AND a2.date=$2
     LEFT JOIN grades g ON g.student_id=s.id
     LEFT JOIN alerts al ON al.student_id=s.id
     WHERE s.school_id=$1
     GROUP BY s.id ORDER BY absences DESC, missing_assignments DESC
-  `, [req.session.schoolId]);
+  `, [req.session.schoolId, today]);
   res.json(r.rows);
 });
 

@@ -1,7 +1,7 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 const S = {
   user: null, page: 'login', params: {}, history: [],
-  feed: [], messages: [], sections: [], adminData: null, adminStudents: null,
+  feed: null, messages: null, sections: null, adminData: null, adminStudents: null,
 };
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -264,7 +264,7 @@ async function doLogout() {
 
 // ── Parent: Feed ──────────────────────────────────────────────────────────────
 function renderFeed() {
-  if (S.feed.length) {
+  if (S.feed !== null) {
     // fall through to render
   } else if (!S._feedLoaded) {
     S._feedLoaded = true;
@@ -459,7 +459,7 @@ async function markAlertRead(id, el) {
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 function renderMessages() {
-  if (S.messages.length) {
+  if (S.messages !== null) {
     // fall through to render
   } else if (!S._msgsLoaded) {
     S._msgsLoaded = true;
@@ -506,7 +506,7 @@ async function sendMessage() {
   try {
     await POST('/api/messages', { to_id: 2, student_id: S.feed[0]?.student?.id || null, content });
     document.getElementById('msg-content').value = '';
-    S.messages = [];
+    S.messages = null;
     S._msgsLoaded = false;
     render();
   } catch (e) { alert(e.message); }
@@ -567,6 +567,7 @@ async function setTier(tier) {
   try {
     await PUT('/api/consent', { tier });
     S.user.consent_tier = tier;
+    S.feed = null;
     S._feedLoaded = false;
     render();
   } catch (e) { alert(e.message); }
@@ -581,7 +582,7 @@ async function loadAuditLog() {
 
 // ── Teacher: Attendance ───────────────────────────────────────────────────────
 function renderAttendance() {
-  if (S.sections.length) {
+  if (S.sections !== null) {
     // fall through to render
   } else if (!S._sectionsLoaded) {
     S._sectionsLoaded = true;
@@ -674,7 +675,7 @@ async function submitAttendance(sectionId) {
   }));
   try {
     await POST('/api/teacher/attendance', { records });
-    S.params = {}; S._sectionsLoaded = false;
+    S.params = {};
     alert(`Attendance submitted for ${records.length} students. Intervention engine running...`);
     render();
   } catch (e) { alert(e.message); }
@@ -682,7 +683,7 @@ async function submitAttendance(sectionId) {
 
 // ── Teacher: Behavior ─────────────────────────────────────────────────────────
 function renderBehaviorForm() {
-  if (S.sections.length) {
+  if (S.sections !== null) {
     // fall through to render
   } else if (!S._sectionsLoaded) {
     S._sectionsLoaded = true;
@@ -792,12 +793,12 @@ function renderAdmin() {
     <!-- Key metrics -->
     <div class="grid grid-cols-2 gap-3 mb-5">
       ${[
-        { label:'Students Enrolled', value: d.students,     color:'text-blue-600',  bg:'bg-blue-50',  nav:'admin-students' },
+        { label:'Students Enrolled', value: d.students,     color:'text-blue-600',  bg:'bg-blue-50',  nav:'admin-students', filter:null },
         { label:'Teachers',          value: d.teachers,     color:'text-slate-700', bg:'bg-slate-50' },
-        { label:'Absent Today',      value: d.absent_today, color:'text-red-600',   bg:'bg-red-50',   nav:'admin-students' },
-        { label:'Alerts Today',      value: d.alerts_today, color:'text-amber-600', bg:'bg-amber-50', nav:'admin-students' },
+        { label:'Absent Today',      value: d.absent_today, color:'text-red-600',   bg:'bg-red-50',   nav:'admin-students', filter:'absent' },
+        { label:'Alerts Today',      value: d.alerts_today, color:'text-amber-600', bg:'bg-amber-50', nav:'admin-students', filter:'alerts' },
       ].map(s => `
-      <div onclick="${s.nav ? `nav('${s.nav}')` : ''}" class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm ${s.nav ? 'cursor-pointer hover:border-blue-200 hover:shadow-md transition-all' : ''}">
+      <div onclick="${s.nav ? `nav('${s.nav}', {filter:'${s.filter||''}'})` : ''}" class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm ${s.nav ? 'cursor-pointer hover:border-blue-200 hover:shadow-md transition-all' : ''}">
         <div class="text-3xl font-black ${s.color}">${s.value ?? '—'}</div>
         <div class="text-xs text-slate-400 mt-0.5 font-medium">${s.label}</div>
       </div>`).join('')}
@@ -854,10 +855,14 @@ function renderAdminStudents() {
   } else {
     return spinner();
   }
-  const students = S.adminStudents || [];
+  const filter = S.params?.filter;
+  let students = S.adminStudents || [];
+  if (filter === 'absent') students = students.filter(s => s.absent_today);
+  if (filter === 'alerts') students = students.filter(s => s.last_alert);
+  const title = filter === 'absent' ? 'Absent Today' : filter === 'alerts' ? 'Alerts Today' : 'Student Risk Dashboard';
   return `
   <div>
-    <h2 class="text-lg font-bold mb-4">Student Risk Dashboard</h2>
+    <h2 class="text-lg font-bold mb-4">${title}</h2>
     <input oninput="filterStudents(this.value)" placeholder="Search students..."
       class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"/>
     <div id="student-list" class="space-y-2">
@@ -897,8 +902,7 @@ function filterStudents(val) {
 
 async function loadStudentDetail(id, name) {
   const data = await GET(`/api/admin/student/${id}`);
-  S.params = { studentDetail: data };
-  nav('student-detail');
+  nav('student-detail', { studentDetail: data });
 }
 
 // ── Admin: Student Detail ─────────────────────────────────────────────────────
