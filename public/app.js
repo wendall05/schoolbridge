@@ -446,9 +446,11 @@ function renderFeed() {
         <span class="text-xs text-blue-400">${fmt(a.created_at)}</span>
       </div>`).join('')}
 
-      <button onclick="nav('messages')" class="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors mt-1">
-        💬 Message ${student.name.split(' ')[0]}'s teacher
-      </button>
+      ${(child.teachers||[]).map(t => `
+      <button onclick="nav('messages',{prefill:{to_id:${t.id},to_name:'${esc(t.name)}',student_id:${student.id},student_name:'${esc(student.name)}'}})"
+        class="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors mt-1 mb-1">
+        💬 Message ${esc(t.name)} · ${esc(t.subject||'Teacher')}
+      </button>`).join('')}
     </div>`;
   }).join('');
 }
@@ -492,11 +494,12 @@ function renderMessages() {
       </div>`).join('') : `<div class="px-4 py-10 text-center text-sm text-slate-400">No messages yet</div>`}
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
-      <p class="text-sm font-semibold text-slate-700 mb-3">Send a message</p>
+      <p class="text-sm font-semibold text-slate-700 mb-3">New Message</p>
+      ${S.params?.prefill ? `<p class="text-xs text-blue-600 font-medium mb-2">To: ${esc(S.params.prefill.to_name)} · Re: ${esc(S.params.prefill.student_name)}</p>` : ''}
       <textarea id="msg-content" rows="3" placeholder="Type your message..."
         class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"></textarea>
       <button onclick="sendMessage()" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
-        Send Message
+        Send
       </button>
     </div>
   </div>`;
@@ -505,8 +508,11 @@ function renderMessages() {
 async function sendMessage() {
   const content = document.getElementById('msg-content')?.value?.trim();
   if (!content) return;
+  const prefill = S.params?.prefill;
+  const to_id = prefill?.to_id || (S.user?.role === 'parent' ? null : 1);
+  if (!to_id) return alert('No recipient — use the message button next to a teacher name.');
   try {
-    await POST('/api/messages', { to_id: 2, student_id: S.feed[0]?.student?.id || null, content });
+    await POST('/api/messages', { to_id, student_id: prefill?.student_id || null, content });
     document.getElementById('msg-content').value = '';
     S.messages = null;
     S._msgsLoaded = false;

@@ -147,6 +147,16 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
         ORDER BY priority DESC, created_at DESC
       `, [parentId, child.id]);
 
+      // Teachers for this student's sections
+      const teachers = await query(`
+        SELECT DISTINCT u.id, u.name, sec.subject
+        FROM section_students ss
+        JOIN sections sec ON sec.id = ss.section_id
+        JOIN users u ON u.id = sec.teacher_id
+        WHERE ss.student_id = $1
+        ORDER BY sec.subject
+      `, [child.id]);
+
       feed.push({
         student: child,
         alerts: alerts.rows,
@@ -155,6 +165,7 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
         upcoming: upcoming.rows,
         behavior: behavior.rows,
         shadow: shadow.rows,
+        teachers: teachers.rows,
       });
     }
 
