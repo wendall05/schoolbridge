@@ -999,12 +999,14 @@ function spinner() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+render(); // show login immediately while auth check runs
 (async () => {
   try {
     const user = await GET('/auth/me');
     S.user = user;
     nav(user.role === 'parent' ? 'feed' : user.role === 'teacher' ? 'attendance' : 'admin');
-  } catch {
+  } catch (e) {
+    console.error('Boot error:', e);
     render();
   }
 })();
