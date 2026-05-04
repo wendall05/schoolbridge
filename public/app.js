@@ -264,9 +264,13 @@ async function doLogout() {
 
 // ── Parent: Feed ──────────────────────────────────────────────────────────────
 function renderFeed() {
-  if (!S._feedLoaded) {
+  if (S.feed.length) {
+    // fall through to render
+  } else if (!S._feedLoaded) {
     S._feedLoaded = true;
-    GET('/api/feed').then(data => { S.feed = data; S._feedLoaded = false; render(); }).catch(console.error);
+    GET('/api/feed').then(data => { S.feed = data; render(); }).catch(e => { console.error('Feed error:', e); S._feedLoaded = false; });
+    return spinner();
+  } else {
     return spinner();
   }
   if (!S.feed.length) return `<div class="text-center py-16 text-slate-400">No students linked to your account.</div>`;
@@ -745,9 +749,13 @@ async function submitBehavior() {
 
 // ── Admin: Overview ───────────────────────────────────────────────────────────
 function renderAdmin() {
-  if (!S._adminLoaded) {
+  if (S.adminData) {
+    // fall through to render
+  } else if (!S._adminLoaded) {
     S._adminLoaded = true;
-    GET('/api/admin/overview').then(data => { S.adminData = data; S._adminLoaded = false; render(); }).catch(console.error);
+    GET('/api/admin/overview').then(data => { S.adminData = data; render(); }).catch(e => { console.error('Admin overview error:', e); S._adminLoaded = false; });
+    return spinner();
+  } else {
     return spinner();
   }
   const d = S.adminData || {};
@@ -824,9 +832,13 @@ async function runSync() {
 
 // ── Admin: Students ────────────────────────────────────────────────────────────
 function renderAdminStudents() {
-  if (!S._stuListLoaded) {
+  if (S.adminStudents) {
+    // fall through to render
+  } else if (!S._stuListLoaded) {
     S._stuListLoaded = true;
-    GET('/api/admin/students').then(data => { S.adminStudents = data; S._stuListLoaded = false; render(); }).catch(console.error);
+    GET('/api/admin/students').then(data => { S.adminStudents = data; render(); }).catch(e => { console.error('Admin students error:', e); S._stuListLoaded = false; });
+    return spinner();
+  } else {
     return spinner();
   }
   const students = S.adminStudents || [];
