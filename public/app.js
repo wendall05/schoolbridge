@@ -459,9 +459,13 @@ async function markAlertRead(id, el) {
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 function renderMessages() {
-  if (!S._msgsLoaded) {
+  if (S.messages.length) {
+    // fall through to render
+  } else if (!S._msgsLoaded) {
     S._msgsLoaded = true;
-    GET('/api/messages').then(data => { S.messages = data; S._msgsLoaded = false; render(); }).catch(console.error);
+    GET('/api/messages').then(data => { S.messages = data; render(); }).catch(e => { console.error('Messages error:', e); S._msgsLoaded = false; });
+    return spinner();
+  } else {
     return spinner();
   }
   const unread = S.messages.filter(m => !m.read_at && m.to_id === S.user?.id).length;
@@ -502,6 +506,7 @@ async function sendMessage() {
   try {
     await POST('/api/messages', { to_id: 2, student_id: S.feed[0]?.student?.id || null, content });
     document.getElementById('msg-content').value = '';
+    S.messages = [];
     S._msgsLoaded = false;
     render();
   } catch (e) { alert(e.message); }
@@ -677,9 +682,13 @@ async function submitAttendance(sectionId) {
 
 // ── Teacher: Behavior ─────────────────────────────────────────────────────────
 function renderBehaviorForm() {
-  if (!S._sectionsLoaded) {
+  if (S.sections.length) {
+    // fall through to render
+  } else if (!S._sectionsLoaded) {
     S._sectionsLoaded = true;
-    GET('/api/teacher/sections').then(data => { S.sections = data; S._sectionsLoaded = false; render(); }).catch(console.error);
+    GET('/api/teacher/sections').then(data => { S.sections = data; render(); }).catch(e => { console.error('Sections error:', e); S._sectionsLoaded = false; });
+    return spinner();
+  } else {
     return spinner();
   }
   return `
@@ -783,12 +792,12 @@ function renderAdmin() {
     <!-- Key metrics -->
     <div class="grid grid-cols-2 gap-3 mb-5">
       ${[
-        { label:'Students Enrolled', value: d.students, color:'text-blue-600', bg:'bg-blue-50' },
-        { label:'Teachers',           value: d.teachers, color:'text-slate-700', bg:'bg-slate-50' },
-        { label:'Absent Today',        value: d.absent_today, color:'text-red-600', bg:'bg-red-50' },
-        { label:'Alerts Today',        value: d.alerts_today, color:'text-amber-600', bg:'bg-amber-50' },
+        { label:'Students Enrolled', value: d.students,     color:'text-blue-600',  bg:'bg-blue-50',  nav:'admin-students' },
+        { label:'Teachers',          value: d.teachers,     color:'text-slate-700', bg:'bg-slate-50' },
+        { label:'Absent Today',      value: d.absent_today, color:'text-red-600',   bg:'bg-red-50',   nav:'admin-students' },
+        { label:'Alerts Today',      value: d.alerts_today, color:'text-amber-600', bg:'bg-amber-50', nav:'admin-students' },
       ].map(s => `
-      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+      <div onclick="${s.nav ? `nav('${s.nav}')` : ''}" class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm ${s.nav ? 'cursor-pointer hover:border-blue-200 hover:shadow-md transition-all' : ''}">
         <div class="text-3xl font-black ${s.color}">${s.value ?? '—'}</div>
         <div class="text-xs text-slate-400 mt-0.5 font-medium">${s.label}</div>
       </div>`).join('')}
