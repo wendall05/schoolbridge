@@ -264,25 +264,6 @@ function renderLogin() {
         </button>
       </div>
 
-      <p class="text-xs font-semibold text-orange-300 text-center uppercase tracking-wider mb-2 mt-3">Operation Pivot</p>
-      <div class="grid grid-cols-2 gap-2">
-        <button onclick="quickLogin('ad@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
-          <p class="text-xs font-bold text-orange-100">🏆 Coach Davis</p>
-          <p class="text-xs text-orange-300 truncate">Athletic Director</p>
-        </button>
-        <button onclick="quickLogin('coach.football@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
-          <p class="text-xs font-bold text-orange-100">🏈 Coach Williams</p>
-          <p class="text-xs text-orange-300 truncate">Football</p>
-        </button>
-        <button onclick="quickLogin('coach.volleyball@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
-          <p class="text-xs font-bold text-orange-100">🏐 Coach Rivera</p>
-          <p class="text-xs text-orange-300 truncate">Volleyball</p>
-        </button>
-        <button onclick="quickLogin('coach.soccer@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
-          <p class="text-xs font-bold text-orange-100">⚽ Coach Thompson</p>
-          <p class="text-xs text-orange-300 truncate">Soccer</p>
-        </button>
-      </div>
       </div>
 
     </div>
@@ -337,22 +318,13 @@ function renderShell() {
       { page:'admin-reports',  label:'Reports',     icon:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
       { page:'messages',       label:t('messages'), icon:msgIcon, badge:unreadMsgs },
     ],
-    athletic_director: [
-      { page:'pivot',       label:'Command',  icon:'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2' },
-      { page:'pivot-roster',label:'Roster',   icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-      { page:'messages',    label:'Messages', icon:msgIcon, badge:unreadMsgs },
-    ],
-    coach: [
-      { page:'pivot',       label:'Game Day', icon:'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2' },
-      { page:'pivot-roster',label:'My Team',  icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-      { page:'messages',    label:'Messages', icon:msgIcon, badge:unreadMsgs },
-    ],
+    athletic_director: [],
+    coach: [],
   };
 
-  const isPivotRole = S.user.role === 'athletic_director' || S.user.role === 'coach';
   const items = navItems[S.user.role] || [];
-  const navActiveClass   = isPivotRole ? 'text-orange-400' : 'text-blue-600';
-  const navInactiveClass = isPivotRole ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600';
+  const navActiveClass   = 'text-blue-600';
+  const navInactiveClass = 'text-slate-400 hover:text-slate-600';
   const navHtml = items.map(n => `
     <button onclick="nav('${n.page}')" class="relative flex flex-col items-center gap-1 flex-1 py-2 ${S.page===n.page||S.page.startsWith(n.page+'-')?navActiveClass:navInactiveClass} transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="${n.icon}"/></svg>
@@ -371,43 +343,33 @@ function renderShell() {
     'admin-students': renderAdminStudents,
     'admin-reports': renderAdminReports,
     'student-detail': renderStudentDetail,
-    pivot: renderPivot,
-    'pivot-roster': renderPivotRoster,
   };
 
   const pageHtml = (pages[S.page] || (() => `<div class="p-6 text-slate-400">Page not found</div>`))();
 
   return `
-  <div class="min-h-screen flex flex-col" style="background:${isPivotRole ? '#0f172a' : '#f1f5f9'}">
-    <header class="sticky top-0 z-40 ${isPivotRole ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border-b px-4 py-3 flex items-center justify-between">
+  <div class="min-h-screen flex flex-col" style="background:#f1f5f9">
+    <header class="sticky top-0 z-40 bg-white border-slate-200 border-b px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        ${S.history.length > 0 ? `<button onclick="goBack()" class="${isPivotRole ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-700'} transition-colors mr-1">
+        ${S.history.length > 0 ? `<button onclick="goBack()" class="text-slate-400 hover:text-slate-700 transition-colors mr-1">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>` : ''}
         <div class="flex items-center gap-2">
-          ${isPivotRole ? `
-          <div class="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
-          </div>
-          <div>
-            <span class="font-bold text-white text-sm">Operation Pivot</span>
-            <span class="text-orange-400 text-xs block leading-none">Logistics Command</span>
-          </div>` : `
           <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
           </div>
-          <span class="font-semibold text-slate-800 text-sm">SchoolBridge</span>`}
+          <span class="font-semibold text-slate-800 text-sm">SchoolBridge</span>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-xs ${isPivotRole ? 'text-slate-400' : 'text-slate-400'}">${esc(S.user.name)}</span>
-        <button onclick="doLogout()" class="text-xs ${isPivotRole ? 'text-slate-500 hover:text-orange-400' : 'text-slate-400 hover:text-red-500'} transition-colors px-2 py-1 rounded">Sign out</button>
+        <span class="text-xs text-slate-400">${esc(S.user.name)}</span>
+        <button onclick="doLogout()" class="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded">Sign out</button>
       </div>
     </header>
     <main class="flex-1 overflow-y-auto pb-20">
       <div class="max-w-2xl mx-auto px-4 py-6 fade-in">${pageHtml}</div>
     </main>
-    <nav class="fixed bottom-0 left-0 right-0 ${isPivotRole ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border-t flex z-40">
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-slate-200 border-t flex z-40">
       ${navHtml}
     </nav>
   </div>`;

@@ -104,6 +104,8 @@ app.post('/auth/login', authLimiter, async (req, res) => {
     const user = r.rows[0];
     if (!user || !await bcrypt.compare(password, user.password_hash))
       return res.status(401).json({ error: 'Invalid email or password' });
+    if (user.role === 'athletic_director' || user.role === 'coach')
+      return res.status(403).json({ error: 'Athletic department accounts log in at Operation Pivot' });
     req.session.userId = user.id;
     req.session.role = user.role;
     req.session.schoolId = user.school_id;
@@ -1147,6 +1149,58 @@ app.post('/api/pivot/assets/checkin', requireAuth, requirePivotRole('admin','ath
       WHERE asset_tag=$2 AND school_id=$3 AND checked_in_at IS NULL
     `, [req.session.userId, asset_tag, req.session.schoolId]);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// ── Operation Pivot: dedicated entry point (serves same SPA, role enforced client-side + API) ──
+app.get('/pivot', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ── Parent: athlete game-day status (parent-safe — no raw eligibility data) ───
+app.get('/api/parent/athlete-status', requireAuth, requireRole('parent'), async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const r = await query(`
+      SELECT
+        s.id AS student_id,
+        s.name AS student_name,
+        s.transport_status,
+        st.name AS team_name,
+        st.sport,
+        ge.id AS game_event_id,
+        ge.opponent,
+        ge.game_time,
+        ge.is_home,
+        gde.is_cleared,
+        gde.blocked_reason,
+        gde.conflict_flag,
+        gde.last_checked_at,
+        -- Bus: latest scan today
+        bs.scanned_at AS bus_scan_time,
+        br.route_name AS bus_route,
+        -- Latest GPS ping
+        (SELECT te.latitude || ',' || te.longitude
+         FROM transportation_events te
+         WHERE te.route_id = bs.route_id
+         ORDER BY te.recorded_at DESC LIMIT 1) AS bus_coords
+      FROM parent_students ps
+      JOIN students s ON s.id = ps.student_id
+      JOIN athlete_profiles ap ON ap.student_id = s.id AND ap.is_active = true
+      JOIN sports_teams st ON st.id = ap.team_id
+      JOIN game_events ge ON ge.team_id = st.id AND ge.game_date = $1 AND ge.status != 'cancelled'
+      LEFT JOIN game_day_eligibility gde ON gde.game_event_id = ge.id AND gde.student_id = s.id
+      LEFT JOIN bus_scans bs ON bs.student_id = s.id AND bs.scanned_at::date = $1 AND bs.scan_type = 'board'
+      LEFT JOIN bus_routes br ON br.id = bs.route_id
+      WHERE ps.parent_id = $2
+      ORDER BY ge.game_time ASC
+    `, [today, req.session.userId]);
+
+    res.json(r.rows.map(row => ({
+      ...row,
+      student_name: decrypt(row.student_name),
+    })));
   } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
