@@ -199,10 +199,10 @@ function render() {
 // ── Login ─────────────────────────────────────────────────────────────────────
 function renderLogin() {
   return `
-  <div class="min-h-screen flex flex-col bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700">
+  <div class="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 overflow-y-auto">
+    <div class="w-full max-w-md mx-auto px-4 pt-10 pb-6">
 
-    <!-- Login form — centered in upper portion -->
-    <div class="flex-1 flex items-center justify-center p-4">
+      <!-- Login form -->
       <div class="w-full max-w-md">
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur mb-4">
@@ -240,10 +240,9 @@ function renderLogin() {
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Demo accounts — pinned to bottom -->
-    <div class="w-full max-w-md mx-auto px-4 pb-6">
+      <!-- Demo accounts -->
+      <div class="mt-6">
       <p class="text-xs font-semibold text-blue-300 text-center uppercase tracking-wider mb-3">Quick Demo Login</p>
 
       <div class="grid grid-cols-2 gap-2 mb-2">
@@ -284,8 +283,9 @@ function renderLogin() {
           <p class="text-xs text-orange-300 truncate">Soccer</p>
         </button>
       </div>
-    </div>
+      </div>
 
+    </div>
   </div>`;
 }
 
