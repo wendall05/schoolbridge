@@ -17,6 +17,7 @@ const { handleOidcLogin, handleLaunch, handleDeepLink, registerPlatform } = requ
 const { cleverAuthUrl, cleverCallback, classLinkAuthUrl, classLinkCallback, samlAuthUrl, samlCallback } = require('./auth-sso');
 const { getChronicAbsenteeismReport, getDistrictAbsenteeismReport, getWeeklyReport } = require('./reports');
 const { checkGameDayEligibility, ingestPartialAttendanceEvent, getTeamReadiness, getGameRoster, resolveConflict, runEligibilityPulse } = require('./eligibility');
+const { loadPivotSandboxData } = require('./pivot-sandbox');
 const { runEdFiSync } = require('./edfi');
 const { syncCanvasGrades, syncGoogleClassroomGrades } = require('./lms-sync');
 
@@ -1293,6 +1294,7 @@ async function start() {
     if (schoolId) {
       await patchSandboxBusData(schoolId).catch(console.error);
       await runInterventionCheck(schoolId).catch(console.error);
+      await loadPivotSandboxData({ query }, schoolId).catch(console.error);
     }
   }
   app.listen(PORT, () => console.log(`SchoolBridge running on :${PORT}`));
