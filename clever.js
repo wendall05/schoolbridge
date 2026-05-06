@@ -397,6 +397,31 @@ async function loadSandboxData(db) {
     `, [schoolId, source, type, records, status, minsAgo]);
   }
 
+  // Demo bus data — Marcus is scanned on bus (on_bus status)
+  const busRouteR = await db.query(`
+    INSERT INTO bus_routes (school_id, route_name, am_arrival_expected, pm_departure_expected)
+    VALUES ($1, 'Route 12 — East Side', '07:45', '15:30')
+    ON CONFLICT DO NOTHING RETURNING id
+  `, [schoolId]);
+
+  if (busRouteR.rows.length > 0) {
+    const routeId = busRouteR.rows[0].id;
+    const stopR = await db.query(`
+      INSERT INTO bus_stops (route_id, stop_name, stop_order, latitude, longitude)
+      VALUES ($1, 'Cedar St & Salina St', 3, 43.0481, -76.1474)
+      RETURNING id
+    `, [routeId]);
+    const stopId = stopR.rows[0].id;
+
+    // Marcus scanned boarding the bus this morning
+    await db.query(`
+      INSERT INTO bus_scans (student_id, route_id, stop_id, scan_type, scanned_at)
+      VALUES ($1, $2, $3, 'board', NOW() - INTERVAL '45 minutes')
+    `, [stuRows[0], routeId, stopId]);
+
+    await db.query(`UPDATE students SET transport_status='on_bus' WHERE id=$1`, [stuRows[0]]);
+  }
+
   console.log('✓ Sandbox loaded — Lincoln Middle School demo ready');
   return schoolId;
 }

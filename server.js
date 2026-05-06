@@ -965,11 +965,44 @@ cron.schedule('0 2 * * *', async () => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
+async function patchSandboxBusData(schoolId) {
+  // Idempotent — only adds bus data if route doesn't exist yet
+  const existing = await query(`SELECT id FROM bus_routes WHERE school_id=$1 LIMIT 1`, [schoolId]);
+  if (existing.rows.length > 0) return;
+
+  const marcusR = await query(`SELECT id FROM students WHERE name='Marcus Johnson' AND school_id=$1`, [schoolId]);
+  if (!marcusR.rows.length) return;
+  const marcusId = marcusR.rows[0].id;
+
+  const routeR = await query(`
+    INSERT INTO bus_routes (school_id, route_name, am_arrival_expected, pm_departure_expected)
+    VALUES ($1, 'Route 12 — East Side', '07:45', '15:30') RETURNING id
+  `, [schoolId]);
+  const routeId = routeR.rows[0].id;
+
+  const stopR = await query(`
+    INSERT INTO bus_stops (route_id, stop_name, stop_order, latitude, longitude)
+    VALUES ($1, 'Cedar St & Salina St', 3, 43.0481, -76.1474) RETURNING id
+  `, [routeId]);
+  const stopId = stopR.rows[0].id;
+
+  await query(`
+    INSERT INTO bus_scans (student_id, route_id, stop_id, scan_type, scanned_at)
+    VALUES ($1, $2, $3, 'board', NOW() - INTERVAL '45 minutes')
+  `, [marcusId, routeId, stopId]);
+
+  await query(`UPDATE students SET transport_status='on_bus' WHERE id=$1`, [marcusId]);
+  console.log('[sandbox] Bus data patched for Marcus Johnson');
+}
+
 async function start() {
   await initDb();
   if (process.env.LOAD_SANDBOX === 'true') {
     const schoolId = await loadSandboxData({ query });
-    if (schoolId) await runInterventionCheck(schoolId).catch(console.error);
+    if (schoolId) {
+      await patchSandboxBusData(schoolId).catch(console.error);
+      await runInterventionCheck(schoolId).catch(console.error);
+    }
   }
   app.listen(PORT, () => console.log(`SchoolBridge running on :${PORT}`));
 }
