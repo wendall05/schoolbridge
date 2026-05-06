@@ -324,6 +324,7 @@ function renderShell() {
     admin: [
       { page:'admin',          label:t('overview'), icon:'M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-1a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1h-4a1 1 0 01-1-1v-5z' },
       { page:'admin-students', label:t('students'), icon:'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+      { page:'admin-reports',  label:'Reports',     icon:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
       { page:'messages',       label:t('messages'), icon:msgIcon, badge:unreadMsgs },
     ],
   };
@@ -345,6 +346,7 @@ function renderShell() {
     behavior: renderBehaviorForm,
     admin: renderAdmin,
     'admin-students': renderAdminStudents,
+    'admin-reports': renderAdminReports,
     'student-detail': renderStudentDetail,
   };
 
@@ -1120,10 +1122,18 @@ function renderAdmin() {
     </button>
 
     <!-- Quick nav -->
-    <button onclick="nav('admin-students')" class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-blue-200 transition-colors mb-4 flex items-center justify-between">
+    <button onclick="nav('admin-students')" class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-blue-200 transition-colors mb-3 flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-800">Student Risk Dashboard</p>
         <p class="text-sm text-slate-400">View all students, risk scores, and alerts</p>
+      </div>
+      <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+    <button onclick="nav('admin-reports')" class="w-full bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-left hover:border-blue-200 transition-colors mb-4 flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-800">Reports & Compliance</p>
+        <p class="text-sm text-slate-400">ESSA chronic absenteeism · weekly summary</p>
       </div>
       <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     </button>
@@ -1362,6 +1372,141 @@ function renderStudentDetail() {
         </div>
       </div>`).join('')}
     </div>` : ''}
+  </div>`;
+}
+
+// ── Admin: Reports & Compliance ───────────────────────────────────────────────
+function renderAdminReports() {
+  if (S.adminReports) {
+    // fall through to render
+  } else if (!S._reportsLoaded) {
+    S._reportsLoaded = true;
+    Promise.all([
+      GET('/api/admin/reports/chronic-absenteeism'),
+      GET('/api/admin/reports/weekly'),
+    ]).then(([absenteeism, weekly]) => {
+      S.adminReports = { absenteeism, weekly };
+      render();
+    }).catch(e => { console.error('Reports error:', e); S._reportsLoaded = false; });
+    return spinner();
+  } else {
+    return spinner();
+  }
+
+  const { absenteeism: ab, weekly: wk } = S.adminReports;
+
+  const wkStats = [
+    { label: 'Total Students',       value: wk.total_students,      color: 'text-blue-600' },
+    { label: 'Absences This Week',   value: wk.total_absences,      color: wk.total_absences > 0 ? 'text-red-600' : 'text-emerald-600' },
+    { label: 'Alerts Triggered',     value: wk.total_alerts,        color: wk.total_alerts > 0 ? 'text-amber-600' : 'text-emerald-600' },
+    { label: 'Critical Alerts',      value: wk.critical_alerts,     color: wk.critical_alerts > 0 ? 'text-red-600' : 'text-emerald-600' },
+    { label: 'Missing Assignments',  value: wk.missing_assignments, color: wk.missing_assignments > 0 ? 'text-amber-600' : 'text-emerald-600' },
+    { label: 'Behavior Concerns',    value: wk.behavior_concerns,   color: wk.behavior_concerns > 0 ? 'text-orange-600' : 'text-emerald-600' },
+  ];
+
+  return `
+  <div>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800">Reports</h2>
+        <p class="text-xs text-slate-400">${wk.period}</p>
+      </div>
+      <button onclick="S.adminReports=null;S._reportsLoaded=false;render()" class="text-xs text-blue-600 font-medium">Refresh</button>
+    </div>
+
+    <!-- Weekly snapshot -->
+    <div class="mb-5">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">7-Day Snapshot</p>
+      <div class="grid grid-cols-2 gap-3">
+        ${wkStats.map(s => `
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+          <div class="text-3xl font-black ${s.color}">${s.value ?? '—'}</div>
+          <div class="text-xs text-slate-400 mt-0.5 font-medium">${s.label}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    ${wk.top_absent_students?.length ? `
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-5">
+      <div class="px-4 py-3 border-b border-slate-50">
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Most Absent This Week</span>
+      </div>
+      ${wk.top_absent_students.map((s, i) => `
+      <div class="px-4 py-3 flex items-center justify-between border-b border-slate-50 last:border-0">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-bold text-slate-400 w-4">${i + 1}</span>
+          <span class="text-sm font-medium text-slate-800">${esc(s.name)}</span>
+        </div>
+        <span class="text-sm font-bold text-red-600">${s.absences} day${s.absences !== 1 ? 's' : ''}</span>
+      </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Chronic Absenteeism (ESSA) -->
+    <div class="mb-3">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">ESSA Chronic Absenteeism</p>
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-3">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <p class="text-xs text-slate-400">School Year · ${ab.total_school_days} days recorded</p>
+            <p class="text-xs text-slate-400">Threshold: ${ab.essa_threshold_pct}% = ${ab.essa_threshold_days} days absent</p>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-black ${ab.chronically_absent_pct >= 10 ? 'text-red-600' : 'text-emerald-600'}">${ab.chronically_absent_pct}%</div>
+            <div class="text-xs text-slate-400">Chronic rate</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-slate-50 rounded-xl p-3">
+            <div class="text-xl font-black text-slate-700">${ab.total_students}</div>
+            <div class="text-xs text-slate-400">Total</div>
+          </div>
+          <div class="bg-red-50 rounded-xl p-3">
+            <div class="text-xl font-black text-red-600">${ab.chronically_absent_count}</div>
+            <div class="text-xs text-red-400">ESSA Flagged</div>
+          </div>
+          <div class="bg-amber-50 rounded-xl p-3">
+            <div class="text-xl font-black text-amber-600">${ab.at_risk_count}</div>
+            <div class="text-xs text-amber-400">At Risk</div>
+          </div>
+        </div>
+      </div>
+
+      ${ab.chronically_absent?.length ? `
+      <div class="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-red-50 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-500"></span>
+          <span class="text-xs font-semibold text-red-600 uppercase tracking-wider">ESSA Flagged Students (${ab.chronically_absent.length})</span>
+        </div>
+        ${ab.chronically_absent.map(s => `
+        <div class="px-4 py-3 flex items-center justify-between border-b border-slate-50 last:border-0">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">${esc(s.name)}${s.has_iep ? ' <span class="text-xs font-normal text-blue-500">IEP</span>' : ''}${s.has_504 ? ' <span class="text-xs font-normal text-purple-500">504</span>' : ''}</p>
+            <p class="text-xs text-slate-400">Grade ${esc(s.grade)} · ${s.absent_days} absent · ${s.tardy_days} tardy</p>
+          </div>
+          <span class="text-sm font-black text-red-600">${s.absence_pct}%</span>
+        </div>`).join('')}
+      </div>` : `
+      <div class="bg-emerald-50 rounded-2xl border border-emerald-100 p-4 text-center">
+        <p class="text-sm font-semibold text-emerald-700">No students ESSA-flagged</p>
+        <p class="text-xs text-emerald-500 mt-1">All students below ${ab.essa_threshold_pct}% absence threshold</p>
+      </div>`}
+
+      ${ab.at_risk?.length ? `
+      <div class="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden mt-3">
+        <div class="px-4 py-3 border-b border-amber-50 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">At Risk (${ab.at_risk.length})</span>
+        </div>
+        ${ab.at_risk.map(s => `
+        <div class="px-4 py-3 flex items-center justify-between border-b border-slate-50 last:border-0">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">${esc(s.name)}</p>
+            <p class="text-xs text-slate-400">Grade ${esc(s.grade)} · ${s.absent_days} absent</p>
+          </div>
+          <span class="text-sm font-black text-amber-600">${s.absence_pct}%</span>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>
   </div>`;
 }
 
