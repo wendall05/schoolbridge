@@ -491,6 +491,7 @@ function renderFeed() {
         }).join('')}
       </div>` : ''}
 
+      ${renderBusCard(bus, student.transport_status)}
 
       <!-- Attendance Grid -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-3 overflow-hidden">
