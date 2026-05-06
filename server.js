@@ -120,7 +120,7 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
     const parentId = req.session.userId;
 
     const children = await query(`
-      SELECT s.id, s.name, s.grade, s.has_iep, s.has_504
+      SELECT s.id, s.name, s.grade, s.has_iep, s.has_504, s.transport_status
       FROM students s
       JOIN parent_students ps ON ps.student_id = s.id
       WHERE ps.parent_id = $1
@@ -423,11 +423,20 @@ app.get('/api/admin/overview', requireAuth, requireRole('admin','district_admin'
   const schoolId = req.session.schoolId;
   const today = new Date().toISOString().split('T')[0];
 
-  const [students, teachers, absentToday, alertsToday, syncs] = await Promise.all([
+  const [students, teachers, absentToday, alertsToday, lpToday, syncs] = await Promise.all([
     query('SELECT COUNT(*) FROM students WHERE school_id=$1', [schoolId]),
     query("SELECT COUNT(*) FROM users WHERE school_id=$1 AND role='teacher'", [schoolId]),
     query("SELECT COUNT(DISTINCT student_id) FROM attendance WHERE date=$1 AND status='absent'", [today]),
     query('SELECT COUNT(DISTINCT student_id) FROM alerts WHERE created_at::date=$1::date', [today]),
+    query(`SELECT COUNT(DISTINCT bs.student_id)
+           FROM bus_scans bs
+           JOIN students st ON st.id=bs.student_id
+           WHERE st.school_id=$1 AND bs.scan_type='board' AND bs.scanned_at::date=$2
+           AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
+           AND NOT EXISTS (
+             SELECT 1 FROM attendance a
+             WHERE a.student_id=bs.student_id AND a.date=$2 AND a.status IN ('present','logistically_present')
+           )`, [schoolId, today]),
     query('SELECT * FROM sync_log WHERE school_id=$1 ORDER BY created_at DESC LIMIT 10', [schoolId]),
   ]);
 
@@ -436,6 +445,7 @@ app.get('/api/admin/overview', requireAuth, requireRole('admin','district_admin'
     teachers: parseInt(teachers.rows[0].count),
     absent_today: parseInt(absentToday.rows[0].count),
     alerts_today: parseInt(alertsToday.rows[0].count),
+    lp_today: parseInt(lpToday.rows[0].count),
     syncs: syncs.rows,
   });
 });
@@ -444,17 +454,27 @@ app.get('/api/admin/students', requireAuth, requireRole('admin','district_admin'
   const today = new Date().toISOString().split('T')[0];
   const r = await query(`
     SELECT s.id, s.name, s.grade, s.has_iep, s.has_504,
+           s.transport_status,
            COUNT(DISTINCT a.id) FILTER (WHERE a.status='absent') as absences,
            COUNT(DISTINCT g.id) FILTER (WHERE g.missing=true) as missing_assignments,
            MAX(al.created_at) as last_alert,
-           BOOL_OR(a2.status='absent') as absent_today
+           BOOL_OR(a2.status='absent') as absent_today,
+           EXISTS (
+             SELECT 1 FROM bus_scans bs
+             WHERE bs.student_id=s.id AND bs.scan_type='board' AND bs.scanned_at::date=$2
+             AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
+             AND NOT EXISTS (
+               SELECT 1 FROM attendance att
+               WHERE att.student_id=s.id AND att.date=$2 AND att.status IN ('present','logistically_present')
+             )
+           ) as logistically_present
     FROM students s
     LEFT JOIN attendance a ON a.student_id=s.id AND a.date >= NOW()-INTERVAL '30 days'
     LEFT JOIN attendance a2 ON a2.student_id=s.id AND a2.date=$2
     LEFT JOIN grades g ON g.student_id=s.id
     LEFT JOIN alerts al ON al.student_id=s.id
     WHERE s.school_id=$1
-    GROUP BY s.id ORDER BY absences DESC, missing_assignments DESC
+    GROUP BY s.id ORDER BY logistically_present DESC, absences DESC, missing_assignments DESC
   `, [req.session.schoolId, today]);
   res.json(r.rows.map(row => ({ ...row, name: decrypt(row.name) })));
 });
@@ -957,6 +977,18 @@ cron.schedule('*/30 7-17 * * 1-5', async () => {
   } catch (e) { console.error('[cron] LMS sync cron error:', e.message); }
 });
 
+// Logistically Present check — every 5 min on school days 7am–3pm Eastern
+cron.schedule('*/5 7-15 * * 1-5', async () => {
+  try {
+    const schools = await query('SELECT id FROM schools');
+    for (const s of schools.rows) {
+      await runInterventionCheck(s.id).catch(e =>
+        console.error(`[cron] LP check failed for school ${s.id}:`, e.message)
+      );
+    }
+  } catch (e) { console.error('[cron] LP cron error:', e.message); }
+});
+
 // Data retention enforcement — runs nightly at 2am
 cron.schedule('0 2 * * *', async () => {
   console.log('[cron] Running data retention enforcement...');
@@ -989,6 +1021,7 @@ async function patchSandboxBusData(schoolId) {
   await query(`
     INSERT INTO bus_scans (student_id, route_id, stop_id, scan_type, scanned_at)
     VALUES ($1, $2, $3, 'board', NOW() - INTERVAL '45 minutes')
+    ON CONFLICT DO NOTHING
   `, [marcusId, routeId, stopId]);
 
   await query(`UPDATE students SET transport_status='on_bus' WHERE id=$1`, [marcusId]);

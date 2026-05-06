@@ -85,7 +85,8 @@ const attColor = s => ({
   present:'bg-emerald-100 text-emerald-700',
   absent:'bg-red-100 text-red-700',
   tardy:'bg-amber-100 text-amber-700',
-  excused:'bg-slate-100 text-slate-500'
+  excused:'bg-slate-100 text-slate-500',
+  logistically_present:'bg-orange-100 text-orange-700',
 })[s] || 'bg-slate-100 text-slate-500';
 
 const priorityConfig = {
@@ -105,16 +106,23 @@ function renderBusCard(bus, studentTransportStatus) {
     { key:'on_bus',     label:'On Bus',     icon:'🚌' },
     { key:'at_school',  label:'At School',  icon:'🏫' },
   ];
-  const status = studentTransportStatus || (bus?.scan_type === 'board' ? 'on_bus' : bus?.scan_type === 'alight' ? 'at_school' : 'unknown');
+  const rawStatus = studentTransportStatus || (bus?.scan_type === 'board' ? 'on_bus' : bus?.scan_type === 'alight' ? 'at_school' : 'unknown');
+  const isLP = rawStatus === 'logistically_present';
+  // LP renders on top of the "on_bus" step with an alert overlay
+  const status = isLP ? 'on_bus' : rawStatus;
   const activeIdx = steps.findIndex(s => s.key === status);
 
-  if (status === 'unknown' || activeIdx === -1) return '';
+  if (rawStatus === 'unknown' || activeIdx === -1) return '';
 
   const stepsHtml = steps.map((s, i) => {
     const done    = i < activeIdx;
     const active  = i === activeIdx;
-    const dotCls  = active ? 'bg-blue-600 ring-4 ring-blue-100' : done ? 'bg-emerald-500' : 'bg-slate-200';
-    const lblCls  = active ? 'text-blue-700 font-bold' : done ? 'text-emerald-600 font-medium' : 'text-slate-400';
+    const dotCls  = active && isLP ? 'bg-orange-500 ring-4 ring-orange-100 animate-pulse'
+                  : active ? 'bg-blue-600 ring-4 ring-blue-100'
+                  : done ? 'bg-emerald-500' : 'bg-slate-200';
+    const lblCls  = active && isLP ? 'text-orange-700 font-bold'
+                  : active ? 'text-blue-700 font-bold'
+                  : done ? 'text-emerald-600 font-medium' : 'text-slate-400';
     return `
     <div class="flex flex-col items-center flex-1">
       <div class="w-7 h-7 rounded-full flex items-center justify-center text-sm ${dotCls} transition-all">
@@ -132,10 +140,10 @@ function renderBusCard(bus, studentTransportStatus) {
   const timeStr = bus?.scanned_at ? new Date(bus.scanned_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
 
   return `
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-3 overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
-      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">🚌 Bus Status</span>
-      ${timeStr ? `<span class="text-xs text-slate-400">Updated ${timeStr}</span>` : ''}
+  <div class="bg-white rounded-2xl shadow-sm border ${isLP ? 'border-orange-300' : 'border-slate-100'} mb-3 overflow-hidden">
+    <div class="px-4 py-3 border-b ${isLP ? 'border-orange-100 bg-orange-50' : 'border-slate-50'} flex items-center justify-between">
+      <span class="text-xs font-semibold ${isLP ? 'text-orange-700' : 'text-slate-500'} uppercase tracking-wider">🚌 Bus Status</span>
+      ${timeStr ? `<span class="text-xs ${isLP ? 'text-orange-500' : 'text-slate-400'}">Scanned ${timeStr}</span>` : ''}
     </div>
     <div class="px-4 py-4">
       <div class="flex items-start relative">
@@ -144,7 +152,12 @@ function renderBusCard(bus, studentTransportStatus) {
       <div class="flex px-3.5 -mt-3">
         ${lineHtml}
       </div>
-      ${bus?.route_name ? `<p class="text-xs text-slate-400 text-center mt-3">Route: ${esc(bus.route_name)}</p>` : ''}
+      ${bus?.route_name ? `<p class="text-xs ${isLP ? 'text-orange-500' : 'text-slate-400'} text-center mt-3">Route: ${esc(bus.route_name)}</p>` : ''}
+      ${isLP ? `
+      <div class="mt-3 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 flex items-center gap-2">
+        <span class="text-orange-500 text-base flex-shrink-0">⚠️</span>
+        <p class="text-xs text-orange-700 font-medium">Scanned on bus — not yet marked present in class. School has been notified.</p>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -393,7 +406,9 @@ function renderFeed() {
     const totalDays    = attendance.length;
     const attPct       = totalDays > 0 ? Math.round(presentDays / totalDays * 100) : 0;
     const trend        = gradeTrend(grades);
-    const hasCritical  = urgentAlerts.some(a => a.priority === 'critical');
+    const lpAlert      = urgentAlerts.find(a => a.type === 'logistically_present');
+    const hasCritical  = urgentAlerts.some(a => a.priority === 'critical' && a.type !== 'logistically_present');
+    const isLP         = student.transport_status === 'logistically_present' || !!lpAlert;
 
     return `
     <div class="mb-8">
@@ -409,14 +424,26 @@ function renderFeed() {
         </div>
       </div>
 
+      ${isLP ? `
+      <!-- Logistically Present banner -->
+      <div class="mb-4 rounded-xl bg-orange-500 text-white p-4 shadow-lg cursor-pointer" onclick="${lpAlert ? `markAlertRead(${lpAlert.id}, this)` : ''}">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl">⚠️</span>
+          <div>
+            <p class="font-black text-sm uppercase tracking-wide mb-1">Logistically Present</p>
+            <p class="text-sm text-orange-100">${esc(student.name)} was scanned onto the bus this morning but has not been marked present in class. The school has been notified and is following up.</p>
+          </div>
+        </div>
+      </div>` : ''}
+
       ${hasCritical ? `
-      <!-- Critical banner -->
+      <!-- Critical banner (non-LP) -->
       <div class="mb-4 rounded-xl bg-red-600 text-white p-4 shadow-lg">
         <div class="flex items-start gap-3">
           <span class="text-2xl">🚨</span>
           <div>
             <p class="font-bold text-sm uppercase tracking-wide mb-1">Action Required</p>
-            <p class="text-sm text-red-100">${esc(urgentAlerts.find(a=>a.priority==='critical')?.message || '')}</p>
+            <p class="text-sm text-red-100">${esc(urgentAlerts.find(a=>a.priority==='critical' && a.type !== 'logistically_present')?.message || '')}</p>
           </div>
         </div>
       </div>` : ''}
@@ -1005,6 +1032,18 @@ function renderAdmin() {
       </div>` : ''}
     </div>
 
+    <!-- Logistically Present banner — only shown when LP count > 0 -->
+    ${d.lp_today > 0 ? `
+    <div class="mb-4 rounded-xl bg-orange-500 text-white p-4 shadow-lg cursor-pointer" onclick="nav('admin-students', {filter:'lp'})">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">⚠️</span>
+        <div>
+          <p class="font-black text-sm uppercase tracking-wide">Logistically Present Alert</p>
+          <p class="text-sm text-orange-100">${d.lp_today} student${d.lp_today > 1 ? 's' : ''} scanned on bus but not checked into class — immediate follow-up required.</p>
+        </div>
+      </div>
+    </div>` : ''}
+
     <!-- Key metrics -->
     <div class="grid grid-cols-2 gap-3 mb-5">
       ${[
@@ -1077,7 +1116,11 @@ function renderAdminStudents() {
   let students = S.adminStudents || [];
   if (filter === 'absent') students = students.filter(s => s.absent_today);
   if (filter === 'alerts') students = students.filter(s => s.last_alert);
-  const title = filter === 'absent' ? 'Absent Today' : filter === 'alerts' ? 'Alerts Today' : 'Student Risk Dashboard';
+  if (filter === 'lp') students = students.filter(s => s.logistically_present);
+  const title = filter === 'absent' ? 'Absent Today'
+              : filter === 'alerts' ? 'Alerts Today'
+              : filter === 'lp' ? '⚠️ Logistically Present'
+              : 'Student Risk Dashboard';
   return `
   <div>
     <h2 class="text-lg font-bold mb-4">${title}</h2>
@@ -1095,13 +1138,13 @@ function renderAdminStudents() {
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <p class="font-semibold text-slate-800">${esc(s.name)}</p>
-                <span class="text-xs font-bold px-2 py-0.5 rounded-full border ${risk.cls}">${risk.label}</span>
+                ${s.logistically_present ? '<span class="text-xs font-black px-2 py-0.5 rounded-full bg-orange-500 text-white animate-pulse">⚠️ ON BUS / NOT IN CLASS</span>' : `<span class="text-xs font-bold px-2 py-0.5 rounded-full border ${risk.cls}">${risk.label}</span>`}
               </div>
               <div class="flex items-center gap-3 mt-1">
                 <span class="text-xs text-slate-400">${esc(s.grade)}</span>
                 ${parseInt(s.absences) > 0 ? `<span class="text-xs font-medium text-red-600">${s.absences} absent</span>` : ''}
                 ${parseInt(s.missing_assignments) > 0 ? `<span class="text-xs font-medium text-amber-600">${s.missing_assignments} missing</span>` : ''}
-                ${parseInt(s.absences) === 0 && parseInt(s.missing_assignments) === 0 ? '<span class="text-xs text-emerald-600 font-medium">No flags</span>' : ''}
+                ${parseInt(s.absences) === 0 && parseInt(s.missing_assignments) === 0 && !s.logistically_present ? '<span class="text-xs text-emerald-600 font-medium">No flags</span>' : ''}
               </div>
             </div>
             <svg class="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>

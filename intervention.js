@@ -18,6 +18,11 @@ async function runInterventionCheck(schoolId) {
     rule_missing_watch: 1, rule_missing_high: 2,
   };
 
+  // Admin users for this school — they receive LP alerts directly
+  const adminUsers = await query(`
+    SELECT id, phone FROM users WHERE school_id=$1 AND role IN ('admin','district_admin')
+  `, [schoolId]);
+
   const students = await query(`
     SELECT s.id, s.name, s.has_iep, s.has_504, ps.parent_id, u.consent_tier, u.phone
     FROM students s
@@ -30,7 +35,7 @@ async function runInterventionCheck(schoolId) {
     const { id: stuId, name: encName, has_iep, has_504, parent_id, consent_tier, phone } = row;
     const name = decrypt(encName);
 
-    // IEP/504: raise threshold by 1 absence before alerting (accommodation)
+    // IEP/504: raise absence threshold by 1 (accommodation)
     const absenceAdjust = (has_iep || has_504) ? 1 : 0;
 
     const absToday = await query(`
@@ -64,13 +69,43 @@ async function runInterventionCheck(schoolId) {
     const absences = parseInt(absCount.rows[0].count);
     const chronicAbsent = absences >= (rules.rule_absence_critical + absenceAdjust);
 
-    // Check for "Logistically Present" — on bus but not in class
+    // ── Logistically Present detection ──────────────────────────────────────────
+    // Student scanned onto bus today 30+ min ago but has no present/LP attendance record
     const busBoard = await query(`
-      SELECT bs.id FROM bus_scans bs
-      WHERE bs.student_id=$1 AND bs.scan_type='board'
-      AND bs.scanned_at::date=$2
+      SELECT id, scanned_at FROM bus_scans
+      WHERE student_id=$1 AND scan_type='board'
+      AND scanned_at::date=$2
+      AND scanned_at <= NOW() - INTERVAL '30 minutes'
+      ORDER BY scanned_at DESC LIMIT 1
     `, [stuId, today]);
-    const logisticallyPresent = busBoard.rows.length > 0 && absToday.rows.length > 0;
+
+    const presentToday = await query(`
+      SELECT id FROM attendance
+      WHERE student_id=$1 AND date=$2 AND status IN ('present','logistically_present')
+    `, [stuId, today]);
+
+    const logisticallyPresent = busBoard.rows.length > 0 && presentToday.rows.length === 0;
+
+    if (logisticallyPresent) {
+      // Record LP in attendance so the grid shows it (section_id NULL = school-level record)
+      await query(`
+        INSERT INTO attendance (student_id, date, status, tier, source)
+        SELECT $1, $2, 'logistically_present', 1, 'system'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM attendance
+          WHERE student_id=$1 AND date=$2 AND status IN ('present','logistically_present') AND section_id IS NULL
+        )
+      `, [stuId, today]).catch(e =>
+        console.error(`[intervention] LP attendance insert failed for ${stuId}: ${e.message}`)
+      );
+
+      // Flag on student record so bus card and feed can read it immediately
+      await query(`
+        UPDATE students SET transport_status='logistically_present' WHERE id=$1
+      `, [stuId]).catch(e =>
+        console.error(`[intervention] LP transport_status update failed for ${stuId}: ${e.message}`)
+      );
+    }
 
     const behavior = consent_tier >= 2 ? await query(`
       SELECT id FROM behavior_events
@@ -79,11 +114,13 @@ async function runInterventionCheck(schoolId) {
 
     let priority = null;
     let message = '';
+    let alertType = 'intervention';
     let channels = ['in-app'];
 
     if (logisticallyPresent) {
       priority = 'critical';
-      message = `${name} was scanned onto their bus this morning but has not been marked present in class. Immediate follow-up required.`;
+      alertType = 'logistically_present';
+      message = `${name} was scanned onto the bus this morning but has not been marked present in class. Immediate follow-up required.`;
       channels = ['in-app', 'push', 'sms', 'email'];
     } else if (behavior.rows.length > 0 && absToday.rows.length > 0) {
       priority = 'critical';
@@ -112,22 +149,41 @@ async function runInterventionCheck(schoolId) {
     if (priority) {
       const existing = await query(`
         SELECT id FROM alerts
-        WHERE parent_id=$1 AND student_id=$2 AND priority=$3 AND created_at::date=$4::date
-      `, [parent_id, stuId, priority, today]);
+        WHERE parent_id=$1 AND student_id=$2 AND type=$3 AND created_at::date=$4::date
+      `, [parent_id, stuId, alertType, today]);
 
       if (!existing.rows.length) {
         await query(`
           INSERT INTO alerts (parent_id, student_id, priority, type, message, channels)
-          VALUES ($1,$2,$3,'intervention',$4,$5)
-        `, [parent_id, stuId, priority, message, channels]);
+          VALUES ($1,$2,$3,$4,$5,$6)
+        `, [parent_id, stuId, priority, alertType, message, channels]);
 
-        // Fire SMS for critical and high alerts
+        // LP alerts also go to every admin for this school
+        if (alertType === 'logistically_present') {
+          for (const admin of adminUsers.rows) {
+            const existingAdmin = await query(`
+              SELECT id FROM alerts
+              WHERE parent_id=$1 AND student_id=$2 AND type='logistically_present' AND created_at::date=$3::date
+            `, [admin.id, stuId, today]);
+            if (!existingAdmin.rows.length) {
+              await query(`
+                INSERT INTO alerts (parent_id, student_id, priority, type, message, channels)
+                VALUES ($1,$2,'critical','logistically_present',$3,'{in-app,sms}')
+              `, [admin.id, stuId, `🚨 ${name} scanned on bus but not in class — immediate follow-up required.`]);
+            }
+          }
+        }
+
+        // SMS for critical and high
         if ((priority === 'critical' || priority === 'high') && phone) {
           const parentPhone = decrypt(phone);
           await sendCriticalAlert(parentPhone, name, message).catch(e =>
             console.error(`[intervention] SMS failed for parent ${parent_id}: ${e.message}`)
           );
-          await query(`UPDATE alerts SET sms_sent=TRUE WHERE parent_id=$1 AND student_id=$2 AND created_at::date=$3::date`, [parent_id, stuId, today]);
+          await query(`
+            UPDATE alerts SET sms_sent=TRUE
+            WHERE parent_id=$1 AND student_id=$2 AND created_at::date=$3::date
+          `, [parent_id, stuId, today]);
         }
 
         alerts.push({ student: name, priority, message });
