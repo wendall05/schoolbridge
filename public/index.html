@@ -26,13 +26,22 @@
 <script src="/app.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
-    });
-    navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data?.type === 'SW_UPDATED') window.location.reload();
-    });
+    const KILL_KEY = 'sb_sw_reset_v7';
+    if (!localStorage.getItem(KILL_KEY)) {
+      // Kill any stale service worker, then reload clean
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        if (regs.length > 0) {
+          localStorage.setItem(KILL_KEY, '1');
+          Promise.all(regs.map(r => r.unregister())).then(() => window.location.reload());
+        } else {
+          localStorage.setItem(KILL_KEY, '1');
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+      });
+    } else {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+    }
   }
 </script>
 </body>
