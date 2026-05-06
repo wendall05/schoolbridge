@@ -20,6 +20,7 @@ const { checkGameDayEligibility, ingestPartialAttendanceEvent, getTeamReadiness,
 const { loadPivotSandboxData } = require('./pivot-sandbox');
 const { runEdFiSync } = require('./edfi');
 const { syncCanvasGrades, syncGoogleClassroomGrades } = require('./lms-sync');
+const bridgeRouter = require('./bridge');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1203,6 +1204,9 @@ app.get('/api/parent/athlete-status', requireAuth, requireRole('parent'), async 
     })));
   } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
+
+// ── Bridge API (Operation Pivot ↔ SchoolBridge) ───────────────────────────────
+app.use('/api/bridge', bridgeRouter);
 
 // ── Catch-all ─────────────────────────────────────────────────────────────────
 app.use((req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
