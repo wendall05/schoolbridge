@@ -188,6 +188,7 @@ function renderLogin() {
   return `
   <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 p-4">
     <div class="w-full max-w-md">
+
       <div class="text-center mb-8">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur mb-4">
           <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,6 +198,7 @@ function renderLogin() {
         <h1 class="text-3xl font-bold text-white tracking-tight">SchoolBridge</h1>
         <p class="text-blue-200 mt-1 text-sm">Unified Parent Engagement Hub</p>
       </div>
+
       <div class="bg-white rounded-2xl shadow-2xl p-8">
         <div id="login-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
         <form onsubmit="doLogin(event)">
@@ -218,7 +220,7 @@ function renderLogin() {
         <!-- SSO buttons -->
         <div class="mt-5 pt-5 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Sign in with</p>
-          <div class="flex gap-2 mb-4">
+          <div class="flex gap-2">
             <a href="/auth/clever" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-sm font-medium text-slate-600 hover:text-blue-700">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
               Clever
@@ -228,14 +230,14 @@ function renderLogin() {
               ClassLink
             </a>
             <a href="/auth/saml" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-sm font-medium text-slate-600 hover:text-purple-700">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93V18c0-.55.45-1 1-1s1 .45 1 1v1.93c-2.28-.47-4.11-2.3-4.58-4.58H10c.55 0 1 .45 1 1s-.45 1-1 1H6.07C5.6 14.11 4 12.14 4 10c0-4.42 3.58-8 8-8s8 3.58 8 8c0 2.14-1.6 4.11-2.07 5.35H14c-.55 0-1-.45-1-1s.45-1 1-1h1.58c-.47 2.28-2.3 4.11-4.58 4.58z"/></svg>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
               Google / MS
             </a>
           </div>
         </div>
 
         <!-- Demo tiles -->
-        <div class="pt-5 border-t border-slate-100">
+        <div class="mt-5 pt-5 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Demo Accounts</p>
           <div class="space-y-2">
             <button onclick="quickLogin('parent@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
@@ -267,15 +269,16 @@ function renderLogin() {
             </button>
           </div>
         </div>
-      </div>
+
         <!-- Language picker -->
-        <div class="mt-5 pt-4 border-t border-slate-100">
+        <div class="mt-5 pt-5 border-t border-slate-100">
           <p class="text-xs text-slate-400 text-center mb-2">Language / Idioma / 语言</p>
           <div class="flex flex-wrap justify-center gap-1.5">
             ${Object.entries(LANGS).map(([k,v]) => `<button onclick="setLang('${k}')" class="text-xs px-2.5 py-1 rounded-full border transition-colors ${S.lang===k?'bg-blue-600 text-white border-blue-600':'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}">${v}</button>`).join('')}
           </div>
         </div>
       </div>
+
       <p class="text-center text-blue-300 text-xs mt-4">Lincoln Middle School · Syracuse City SD · Demo</p>
     </div>
   </div>`;
