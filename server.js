@@ -8,19 +8,45 @@ const cron = require('node-cron');
 const { query, pool, initDb } = require('./db');
 const { loadSandboxData } = require('./clever');
 const { runInterventionCheck } = require('./intervention');
+const { logDataAccess, enforceRetentionPolicies, deleteStudentRecord, getCipaComplianceStatement } = require('./compliance');
+const { helmetMiddleware, globalLimiter, authLimiter, requestLogger, httpsRedirect } = require('./security');
+const { decrypt, decryptRows } = require('./crypto');
+const { cacheBusLocation, getBusLocation, cacheStudentBusState, getStudentBusState } = require('./bus-cache');
+const { runFullSync } = require('./oneroster');
+const { handleOidcLogin, handleLaunch, handleDeepLink, registerPlatform } = require('./lti');
+const { cleverAuthUrl, cleverCallback, classLinkAuthUrl, classLinkCallback, samlAuthUrl, samlCallback } = require('./auth-sso');
+const { getChronicAbsenteeismReport, getDistrictAbsenteeismReport, getWeeklyReport } = require('./reports');
+const { runEdFiSync } = require('./edfi');
+const { syncCanvasGrades, syncGoogleClassroomGrades } = require('./lms-sync');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// In production, don't expose internal error details to clients
+function safeError(e) {
+  if (process.env.NODE_ENV === 'production') return 'An error occurred';
+  return e.message;
+}
+
+// ── Security middleware ───────────────────────────────────────────────────────
 app.set('trust proxy', 1);
-app.use(express.json());
+app.use(httpsRedirect);
+app.use(helmetMiddleware);
+app.use(globalLimiter);
+app.use(requestLogger);
+app.use(express.json({ limit: '50kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
   store: new pgSession({ pool, tableName: 'session', createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || 'sb-secret-2026',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' },
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+  },
 }));
 
 // ── SSE broadcast registry ────────────────────────────────────────────────────
@@ -44,8 +70,7 @@ const requireRole = (...roles) => (req, res, next) => {
   next();
 };
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
+// ── SSE ───────────────────────────────────────────────────────────────────────
 app.get('/api/events', requireAuth, (req, res) => {
   const schoolId = req.session.schoolId;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
@@ -57,9 +82,11 @@ app.get('/api/events', requireAuth, (req, res) => {
   req.on('close', () => { clearInterval(heartbeat); schoolClients.get(schoolId)?.delete(res); });
 });
 
-app.post('/auth/login', async (req, res) => {
+// ── Auth ──────────────────────────────────────────────────────────────────────
+app.post('/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
     const r = await query('SELECT * FROM users WHERE email=$1', [email]);
     const user = r.rows[0];
     if (!user || !await bcrypt.compare(password, user.password_hash))
@@ -67,8 +94,11 @@ app.post('/auth/login', async (req, res) => {
     req.session.userId = user.id;
     req.session.role = user.role;
     req.session.schoolId = user.school_id;
-    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, consent_tier: user.consent_tier });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    req.session.consentTier = user.consent_tier;
+    const name = decrypt(user.name);
+    const email_out = decrypt(user.email);
+    res.json({ id: user.id, name, email: email_out, role: user.role, consent_tier: user.consent_tier });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
 });
 
 app.post('/auth/logout', (req, res) => {
@@ -77,19 +107,20 @@ app.post('/auth/logout', (req, res) => {
 
 app.get('/auth/me', requireAuth, async (req, res) => {
   const r = await query('SELECT id,name,email,role,consent_tier,school_id FROM users WHERE id=$1', [req.session.userId]);
-  res.json(r.rows[0]);
+  const user = r.rows[0];
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  res.json({ ...user, name: decrypt(user.name), email: decrypt(user.email) });
 });
 
 // ── Parent: Feed ──────────────────────────────────────────────────────────────
-
 app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
   try {
     const tier = req.session.consentTier || 3;
     const parentId = req.session.userId;
 
-    // Get children
     const children = await query(`
-      SELECT s.id, s.name, s.grade FROM students s
+      SELECT s.id, s.name, s.grade, s.has_iep, s.has_504
+      FROM students s
       JOIN parent_students ps ON ps.student_id = s.id
       WHERE ps.parent_id = $1
     `, [parentId]);
@@ -97,17 +128,16 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
     const feed = [];
 
     for (const child of children.rows) {
-      // Log data access
-      await query(`INSERT INTO data_audit_log (parent_id, action, source, student_id) VALUES ($1,'feed_view','api',$2)`, [parentId, child.id]);
+      child.name = decrypt(child.name);
 
-      // Attendance last 10 school days
+      await logDataAccess(parentId, child.id, 'feed_view', 'api', tier, req.ip);
+
       const attendance = await query(`
-        SELECT date, status FROM attendance
+        SELECT date, status, justification FROM attendance
         WHERE student_id=$1 AND tier <= $2
         ORDER BY date DESC LIMIT 10
       `, [child.id, tier]);
 
-      // Recent grades
       const grades = await query(`
         SELECT g.assignment_title, g.score, g.max_score, g.letter_grade, g.missing,
                g.due_date, g.created_at, s.name as section_name, s.subject
@@ -117,7 +147,6 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
         ORDER BY g.created_at DESC LIMIT 10
       `, [child.id, tier]);
 
-      // Upcoming assignments (not submitted, due in next 7 days)
       const upcoming = await query(`
         SELECT g.assignment_title, g.due_date, s.subject, s.name as section_name
         FROM grades g
@@ -128,26 +157,22 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
         ORDER BY g.due_date ASC
       `, [child.id, tier]);
 
-      // Behavior (tier 2+)
       const behavior = tier >= 2 ? await query(`
         SELECT type, note, created_at, source FROM behavior_events
         WHERE student_id=$1 ORDER BY created_at DESC LIMIT 5
       `, [child.id]) : { rows: [] };
 
-      // Shadow messages (tier 3)
       const shadow = tier >= 3 ? await query(`
         SELECT platform, parsed_type, raw_text, created_at FROM shadow_messages
         WHERE student_id=$1 ORDER BY created_at DESC LIMIT 5
       `, [child.id]) : { rows: [] };
 
-      // Unread alerts
       const alerts = await query(`
         SELECT id, priority, type, message, channels, created_at FROM alerts
         WHERE parent_id=$1 AND student_id=$2 AND read_at IS NULL
         ORDER BY priority DESC, created_at DESC
       `, [parentId, child.id]);
 
-      // Teachers for this student's sections
       const teachers = await query(`
         SELECT DISTINCT u.id, u.name, sec.subject
         FROM section_students ss
@@ -155,6 +180,15 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
         JOIN users u ON u.id = sec.teacher_id
         WHERE ss.student_id = $1
         ORDER BY sec.subject
+      `, [child.id]);
+
+      // Bus status
+      const busStatus = await query(`
+        SELECT bs.scan_type, bs.scanned_at, br.route_name
+        FROM bus_scans bs
+        JOIN bus_routes br ON br.id = bs.route_id
+        WHERE bs.student_id=$1
+        ORDER BY bs.scanned_at DESC LIMIT 1
       `, [child.id]);
 
       feed.push({
@@ -165,12 +199,13 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
         upcoming: upcoming.rows,
         behavior: behavior.rows,
         shadow: shadow.rows,
-        teachers: teachers.rows,
+        teachers: teachers.rows.map(t => ({ ...t, name: decrypt(t.name) })),
+        bus: busStatus.rows[0] || null,
       });
     }
 
     res.json(feed);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
 });
 
 app.post('/api/alerts/:id/read', requireAuth, async (req, res) => {
@@ -178,24 +213,47 @@ app.post('/api/alerts/:id/read', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Parent: Consent / Data Sovereignty ───────────────────────────────────────
+// ── Absence Justification ─────────────────────────────────────────────────────
+app.post('/api/attendance/:id/justify', requireAuth, requireRole('parent'), async (req, res) => {
+  try {
+    const { justification } = req.body;
+    if (!justification || justification.trim().length < 5)
+      return res.status(400).json({ error: 'Justification required (min 5 characters)' });
 
+    // Verify this parent is linked to the student on this attendance record
+    const r = await query(`
+      SELECT a.id, a.student_id FROM attendance a
+      JOIN parent_students ps ON ps.student_id = a.student_id
+      WHERE a.id=$1 AND ps.parent_id=$2
+    `, [req.params.id, req.session.userId]);
+
+    if (!r.rows.length) return res.status(403).json({ error: 'Not authorized for this record' });
+
+    await query(
+      `UPDATE attendance SET justification=$1, justification_submitted_at=NOW(), status='excused'
+       WHERE id=$2`,
+      [justification.trim(), req.params.id]
+    );
+
+    await logDataAccess(req.session.userId, r.rows[0].student_id, 'absence_justification', 'parent', 1, req.ip);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── Parent: Consent / Data Sovereignty ───────────────────────────────────────
 app.get('/api/consent', requireAuth, async (req, res) => {
   const r = await query('SELECT consent_tier FROM users WHERE id=$1', [req.session.userId]);
   res.json({ tier: r.rows[0].consent_tier });
 });
 
 app.put('/api/consent', requireAuth, requireRole('parent'), async (req, res) => {
-  const { tier } = req.body; // 1 = core only, 2 = +behavior, 3 = +shadow
+  const { tier } = req.body;
   if (![1,2,3].includes(tier)) return res.status(400).json({ error: 'Invalid tier' });
   await query('UPDATE users SET consent_tier=$1 WHERE id=$2', [tier, req.session.userId]);
   req.session.consentTier = tier;
-
-  // Purge higher-tier data if opting down
   if (tier < 3) await query('DELETE FROM shadow_messages WHERE parent_id=$1', [req.session.userId]);
   if (tier < 2) await query('DELETE FROM behavior_events WHERE student_id IN (SELECT student_id FROM parent_students WHERE parent_id=$1)', [req.session.userId]);
-
-  await query('INSERT INTO data_audit_log (parent_id, action, source) VALUES ($1,\'consent_update\',\'settings\')', [req.session.userId]);
+  await logDataAccess(req.session.userId, null, 'consent_update', 'settings', tier, req.ip);
   res.json({ ok: true, tier });
 });
 
@@ -207,13 +265,60 @@ app.get('/api/audit-log', requireAuth, async (req, res) => {
   res.json(r.rows);
 });
 
-// ── Messages ──────────────────────────────────────────────────────────────────
+// ── FERPA / COPPA / SOPPA / PPRA rights requests ──────────────────────────────
+app.post('/api/rights-request', requireAuth, async (req, res) => {
+  try {
+    const { request_type, student_id, regulation, notes } = req.body;
+    const valid = ['disclosure','deletion','correction','portability','inspection','opt_out'];
+    if (!valid.includes(request_type)) return res.status(400).json({ error: 'Invalid request_type' });
 
+    // Verify the requesting parent is linked to this student before any action
+    if (student_id && req.session.role === 'parent') {
+      const own = await query(`SELECT 1 FROM parent_students WHERE parent_id=$1 AND student_id=$2`, [req.session.userId, student_id]);
+      if (!own.rows.length) return res.status(403).json({ error: 'Not authorized for this student' });
+    }
+
+    const userR = await query('SELECT name, school_id FROM users WHERE id=$1', [req.session.userId]);
+    const user = userR.rows[0];
+    const schoolR = await query('SELECT district_id FROM schools WHERE id=$1', [user.school_id]);
+
+    const { submitFerpaRequest } = require('./compliance');
+    const id = await submitFerpaRequest(
+      schoolR.rows[0]?.district_id, user.school_id, student_id,
+      request_type, decrypt(user.name), regulation || 'FERPA'
+    );
+
+    if (request_type === 'deletion' && student_id) {
+      await deleteStudentRecord(student_id, decrypt(user.name));
+    }
+
+    res.json({ ok: true, request_id: id });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// PPRA opt-out
+app.post('/api/ppra/opt-out', requireAuth, requireRole('parent'), async (req, res) => {
+  try {
+    const { student_id, activity_type } = req.body;
+    if (!student_id || !activity_type) return res.status(400).json({ error: 'student_id and activity_type required' });
+    const own = await query(`SELECT 1 FROM parent_students WHERE parent_id=$1 AND student_id=$2`, [req.session.userId, student_id]);
+    if (!own.rows.length) return res.status(403).json({ error: 'Not authorized for this student' });
+    const { recordPpraOptOut } = require('./compliance');
+    await recordPpraOptOut(req.session.userId, student_id, activity_type);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: 'Request failed' }); }
+});
+
+// CIPA compliance statement (public)
+app.get('/api/compliance/cipa', (req, res) => {
+  res.json(getCipaComplianceStatement());
+});
+
+// ── Messages ──────────────────────────────────────────────────────────────────
 app.get('/api/messages', requireAuth, async (req, res) => {
   const r = await query(`
     SELECT m.*, u.name as from_name, u.role as from_role,
-           t2.name as to_name,
-           s.name as student_name
+           t2.name as to_name, s.name as student_name
     FROM messages m
     JOIN users u ON u.id = m.from_id
     LEFT JOIN users t2 ON t2.id = m.to_id
@@ -221,15 +326,22 @@ app.get('/api/messages', requireAuth, async (req, res) => {
     WHERE m.to_id=$1 OR m.from_id=$1
     ORDER BY m.created_at DESC LIMIT 50
   `, [req.session.userId]);
-  res.json(r.rows);
+  const rows = r.rows.map(row => ({
+    ...row,
+    from_name: decrypt(row.from_name),
+    to_name: decrypt(row.to_name),
+    student_name: decrypt(row.student_name),
+  }));
+  res.json(rows);
 });
 
 app.post('/api/messages', requireAuth, async (req, res) => {
   const { to_id, student_id, content } = req.body;
-  const r = await query(`
-    INSERT INTO messages (from_id, to_id, student_id, content)
-    VALUES ($1,$2,$3,$4) RETURNING *
-  `, [req.session.userId, to_id, student_id, content]);
+  if (!content || content.trim().length === 0) return res.status(400).json({ error: 'Content required' });
+  const r = await query(
+    `INSERT INTO messages (from_id, to_id, student_id, content) VALUES ($1,$2,$3,$4) RETURNING *`,
+    [req.session.userId, to_id, student_id, content.trim()]
+  );
   res.json(r.rows[0]);
 });
 
@@ -239,7 +351,6 @@ app.put('/api/messages/:id/read', requireAuth, async (req, res) => {
 });
 
 // ── Teacher: Attendance ───────────────────────────────────────────────────────
-
 app.get('/api/teacher/sections', requireAuth, requireRole('teacher','admin'), async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const r = await query(`
@@ -257,19 +368,20 @@ app.get('/api/teacher/sections', requireAuth, requireRole('teacher','admin'), as
 app.get('/api/teacher/sections/:id/students', requireAuth, requireRole('teacher','admin'), async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const r = await query(`
-    SELECT s.id, s.name, s.grade,
-           a.status as today_status
+    SELECT s.id, s.name, s.grade, s.has_iep, s.has_504, a.status as today_status
     FROM students s
     JOIN section_students ss ON ss.student_id = s.id
     LEFT JOIN attendance a ON a.student_id = s.id AND a.date=$2 AND a.section_id=$1
     WHERE ss.section_id=$1
     ORDER BY s.name
   `, [req.params.id, today]);
-  res.json(r.rows);
+  res.json(r.rows.map(row => ({ ...row, name: decrypt(row.name) })));
 });
 
 app.post('/api/teacher/attendance', requireAuth, requireRole('teacher','admin'), async (req, res) => {
-  const { records } = req.body; // [{ student_id, section_id, date, status }]
+  const { records } = req.body;
+  if (!Array.isArray(records) || records.length === 0)
+    return res.status(400).json({ error: 'Records array required' });
   for (const r of records) {
     await query(`
       INSERT INTO attendance (student_id, section_id, date, status, source)
@@ -306,8 +418,7 @@ app.post('/api/teacher/behavior', requireAuth, requireRole('teacher','admin'), a
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-
-app.get('/api/admin/overview', requireAuth, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/overview', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
   const schoolId = req.session.schoolId;
   const today = new Date().toISOString().split('T')[0];
 
@@ -328,10 +439,10 @@ app.get('/api/admin/overview', requireAuth, requireRole('admin'), async (req, re
   });
 });
 
-app.get('/api/admin/students', requireAuth, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/students', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const r = await query(`
-    SELECT s.id, s.name, s.grade,
+    SELECT s.id, s.name, s.grade, s.has_iep, s.has_504,
            COUNT(DISTINCT a.id) FILTER (WHERE a.status='absent') as absences,
            COUNT(DISTINCT g.id) FILTER (WHERE g.missing=true) as missing_assignments,
            MAX(al.created_at) as last_alert,
@@ -344,45 +455,27 @@ app.get('/api/admin/students', requireAuth, requireRole('admin'), async (req, re
     WHERE s.school_id=$1
     GROUP BY s.id ORDER BY absences DESC, missing_assignments DESC
   `, [req.session.schoolId, today]);
-  res.json(r.rows);
+  res.json(r.rows.map(row => ({ ...row, name: decrypt(row.name) })));
 });
 
-app.post('/api/admin/sync', requireAuth, requireRole('admin'), async (req, res) => {
+app.post('/api/admin/sync', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
   try {
     const alerts = await runInterventionCheck(req.session.schoolId);
     broadcast(req.session.schoolId, { type: 'sync' });
     res.json({ ok: true, alerts_created: alerts.length, alerts });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
 });
 
-// ── Shadow IT ingest ──────────────────────────────────────────────────────────
-
-app.post('/api/shadow/ingest', requireAuth, requireRole('parent'), async (req, res) => {
-  const { platform, raw_text, student_id } = req.body;
-  const tier = (await query('SELECT consent_tier FROM users WHERE id=$1', [req.session.userId])).rows[0]?.consent_tier;
-  if (tier < 3) return res.status(403).json({ error: 'Shadow IT tier not enabled' });
-
-  // Simple parser — detect type from text
-  let parsed_type = 'general';
-  if (/absent|attendance/i.test(raw_text)) parsed_type = 'attendance';
-  else if (/behavior|conduct/i.test(raw_text)) parsed_type = 'behavior';
-  else if (/grade|score|assignment/i.test(raw_text)) parsed_type = 'grade';
-  else if (/remind|message/i.test(raw_text)) parsed_type = 'message';
-
-  await query(`
-    INSERT INTO shadow_messages (student_id, parent_id, platform, raw_text, parsed_type)
-    VALUES ($1,$2,$3,$4,$5)
-  `, [student_id, req.session.userId, platform, raw_text, parsed_type]);
-
-  res.json({ ok: true, parsed_type });
-});
-
-app.get('/api/admin/student/:id', requireAuth, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/student/:id', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
   try {
     const stuId = req.params.id;
     const [student, attendance, grades, behavior, alerts, parents] = await Promise.all([
-      query('SELECT * FROM students WHERE id=$1', [stuId]),
-      query(`SELECT a.date, a.status, s.name as section_name
+      // Scope to admin's school (district_admin can see across district via join)
+      query(`SELECT s.* FROM students s
+             JOIN schools sc ON sc.id=s.school_id
+             WHERE s.id=$1 AND (s.school_id=$2 OR sc.district_id=(SELECT district_id FROM schools WHERE id=$2))`,
+             [stuId, req.session.schoolId]),
+      query(`SELECT a.date, a.status, a.justification, s.name as section_name
              FROM attendance a LEFT JOIN sections s ON s.id=a.section_id
              WHERE a.student_id=$1 ORDER BY a.date DESC LIMIT 20`, [stuId]),
       query(`SELECT g.*, s.name as section_name, s.subject
@@ -403,50 +496,474 @@ app.get('/api/admin/student/:id', requireAuth, requireRole('admin'), async (req,
     const absences = attendance.rows.filter(a => a.status === 'absent').length;
     const missing = grades.rows.filter(g => g.missing).length;
     res.json({
-      student: s,
+      student: { ...s, name: decrypt(s.name) },
       attendance: attendance.rows,
       grades: grades.rows,
-      behavior: behavior.rows,
-      alerts: alerts.rows,
-      parents: parents.rows,
+      behavior: behavior.rows.map(b => ({ ...b, teacher_name: decrypt(b.teacher_name) })),
+      alerts: alerts.rows.map(a => ({ ...a, parent_name: decrypt(a.parent_name) })),
+      parents: parents.rows.map(p => ({ ...p, name: decrypt(p.name) })),
       stats: { absences, missing },
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
 });
 
-// ── Clever OAuth ──────────────────────────────────────────────────────────────
+// ── Aggregator endpoint (Bus + Attendance + Grades) ───────────────────────────
+app.get('/api/aggregate/:studentId', requireAuth, async (req, res) => {
+  try {
+    const stuId = req.params.studentId;
 
-app.get('/auth/clever', (req, res) => {
-  const clientId = process.env.CLEVER_CLIENT_ID || 'demo';
-  const redirect = `${process.env.APP_URL || 'http://localhost:3000'}/auth/clever/callback`;
-  res.redirect(`https://clever.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirect)}`);
+    // Authorization: parents must own the student; teachers/admins must share school
+    if (req.session.role === 'parent') {
+      const own = await query(`SELECT 1 FROM parent_students WHERE parent_id=$1 AND student_id=$2`, [req.session.userId, stuId]);
+      if (!own.rows.length) return res.status(403).json({ error: 'Forbidden' });
+    } else {
+      const own = await query(`SELECT 1 FROM students WHERE id=$1 AND school_id=$2`, [stuId, req.session.schoolId]);
+      if (!own.rows.length) return res.status(403).json({ error: 'Forbidden' });
+    }
+    const today = new Date().toISOString().split('T')[0];
+
+    const [student, todayAttendance, recentGrades, busStatus, lastScan] = await Promise.all([
+      query('SELECT id, name, grade, transport_status, has_iep, has_504 FROM students WHERE id=$1', [stuId]),
+      query(`SELECT date, status, section_id FROM attendance WHERE student_id=$1 AND date=$2`, [stuId, today]),
+      query(`SELECT assignment_title, score, max_score, letter_grade, missing, due_date
+             FROM grades WHERE student_id=$1 ORDER BY created_at DESC LIMIT 5`, [stuId]),
+      query(`SELECT te.event_type, te.recorded_at, br.route_name
+             FROM transportation_events te
+             JOIN bus_routes br ON br.id=te.route_id
+             JOIN bus_scans bs ON bs.route_id=te.route_id
+             WHERE bs.student_id=$1
+             ORDER BY te.recorded_at DESC LIMIT 1`, [stuId]),
+      query(`SELECT scan_type, scanned_at, br.route_name
+             FROM bus_scans bs JOIN bus_routes br ON br.id=bs.route_id
+             WHERE bs.student_id=$1 ORDER BY scanned_at DESC LIMIT 1`, [stuId]),
+    ]);
+
+    const s = student.rows[0];
+    if (!s) return res.status(404).json({ error: 'Student not found' });
+
+    const inClassToday = todayAttendance.rows.some(a => a.status === 'present');
+    const scannedOnBus = lastScan.rows[0]?.scan_type === 'board';
+    const logisticallyPresent = scannedOnBus && !inClassToday;
+
+    res.json({
+      student: { ...s, name: decrypt(s.name) },
+      today: {
+        attendance: todayAttendance.rows,
+        in_class: inClassToday,
+        bus: lastScan.rows[0] || null,
+        logistically_present: logisticallyPresent,
+      },
+      grades: recentGrades.rows,
+      bus_event: busStatus.rows[0] || null,
+    });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── Shadow IT ingest ──────────────────────────────────────────────────────────
+app.post('/api/shadow/ingest', requireAuth, requireRole('parent'), async (req, res) => {
+  const { platform, raw_text, student_id } = req.body;
+  if (!student_id) return res.status(400).json({ error: 'student_id required' });
+  const own = await query(`SELECT 1 FROM parent_students WHERE parent_id=$1 AND student_id=$2`, [req.session.userId, student_id]);
+  if (!own.rows.length) return res.status(403).json({ error: 'Not authorized for this student' });
+  const tier = (await query('SELECT consent_tier FROM users WHERE id=$1', [req.session.userId])).rows[0]?.consent_tier;
+  if (tier < 3) return res.status(403).json({ error: 'Shadow IT tier not enabled' });
+
+  let parsed_type = 'general';
+  if (/absent|attendance/i.test(raw_text)) parsed_type = 'attendance';
+  else if (/behavior|conduct/i.test(raw_text)) parsed_type = 'behavior';
+  else if (/grade|score|assignment/i.test(raw_text)) parsed_type = 'grade';
+  else if (/remind|message/i.test(raw_text)) parsed_type = 'message';
+
+  await query(
+    `INSERT INTO shadow_messages (student_id, parent_id, platform, raw_text, parsed_type) VALUES ($1,$2,$3,$4,$5)`,
+    [student_id, req.session.userId, platform, raw_text, parsed_type]
+  );
+  res.json({ ok: true, parsed_type });
+});
+
+// ── Bus scan ingestion (from bus hardware / GPS provider webhook) ─────────────
+app.post('/api/bus/scan', async (req, res) => {
+  try {
+    // Secured with a shared secret header, not session auth (device-originated)
+    const secret = req.headers['x-bus-secret'];
+    if (!secret || secret !== process.env.BUS_WEBHOOK_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { student_id, route_id, stop_id, scan_type } = req.body;
+    if (!student_id || !route_id || !scan_type)
+      return res.status(400).json({ error: 'student_id, route_id, scan_type required' });
+    if (!['board','alight'].includes(scan_type))
+      return res.status(400).json({ error: 'scan_type must be board or alight' });
+
+    await query(
+      `INSERT INTO bus_scans (student_id, route_id, stop_id, scan_type) VALUES ($1,$2,$3,$4)`,
+      [student_id, route_id, stop_id || null, scan_type]
+    );
+
+    // Update transport_status on student
+    const status = scan_type === 'board' ? 'on_bus' : 'at_school';
+    await query(`UPDATE students SET transport_status=$1 WHERE id=$2`, [status, student_id]);
+
+    // Cache in Redis for real-time feed
+    await cacheStudentBusState(student_id, { scan_type, route_id, scanned_at: new Date().toISOString() });
+
+    // If student boarded bus, trigger intervention check for "Logistically Present" detection
+    if (scan_type === 'board') {
+      const stuR = await query('SELECT school_id FROM students WHERE id=$1', [student_id]);
+      if (stuR.rows[0]) {
+        runInterventionCheck(stuR.rows[0].school_id)
+          .then(() => broadcast(stuR.rows[0].school_id, { type: 'bus_scan', student_id }))
+          .catch(console.error);
+      }
+    }
+
+    res.json({ ok: true, status });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// Bus GPS ping (from vehicle tracking system)
+app.post('/api/bus/ping', async (req, res) => {
+  try {
+    const secret = req.headers['x-bus-secret'];
+    if (!secret || secret !== process.env.BUS_WEBHOOK_SECRET)
+      return res.status(401).json({ error: 'Unauthorized' });
+
+    const { route_id, latitude, longitude, event_type, stop_id, speed_mph, heading } = req.body;
+    if (!route_id || !event_type) return res.status(400).json({ error: 'route_id and event_type required' });
+
+    await query(
+      `INSERT INTO transportation_events (route_id, event_type, latitude, longitude, stop_id, speed_mph, heading)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [route_id, event_type, latitude, longitude, stop_id || null, speed_mph || null, heading || null]
+    );
+
+    // Cache latest location in Redis
+    await cacheBusLocation(route_id, { latitude, longitude, event_type, recorded_at: new Date().toISOString(), speed_mph, heading });
+
+    // Broadcast to school clients so bus progress bar updates live
+    if (event_type === 'arrived_school') {
+      const routeR = await query('SELECT school_id FROM bus_routes WHERE id=$1', [route_id]);
+      if (routeR.rows[0]) broadcast(routeR.rows[0].school_id, { type: 'bus_arrived', route_id });
+    }
+
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// Real-time bus location for parent dashboard
+app.get('/api/bus/location/:routeId', requireAuth, async (req, res) => {
+  try {
+    // Try Redis cache first
+    const cached = await getBusLocation(req.params.routeId);
+    if (cached) return res.json({ source: 'cache', ...cached });
+
+    // Fall back to DB
+    const r = await query(
+      `SELECT event_type, latitude, longitude, recorded_at, speed_mph
+       FROM transportation_events WHERE route_id=$1
+       ORDER BY recorded_at DESC LIMIT 1`,
+      [req.params.routeId]
+    );
+    res.json(r.rows[0] ? { source: 'db', ...r.rows[0] } : { source: 'none' });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// Student's bus status (Redis-first)
+app.get('/api/bus/student/:studentId', requireAuth, async (req, res) => {
+  try {
+    const stuId = req.params.studentId;
+    if (req.session.role === 'parent') {
+      const own = await query(`SELECT 1 FROM parent_students WHERE parent_id=$1 AND student_id=$2`, [req.session.userId, stuId]);
+      if (!own.rows.length) return res.status(403).json({ error: 'Forbidden' });
+    } else {
+      const own = await query(`SELECT 1 FROM students WHERE id=$1 AND school_id=$2`, [stuId, req.session.schoolId]);
+      if (!own.rows.length) return res.status(403).json({ error: 'Forbidden' });
+    }
+    const cached = await getStudentBusState(req.params.studentId);
+    if (cached) return res.json({ source: 'cache', ...cached });
+
+    const r = await query(
+      `SELECT bs.scan_type, bs.scanned_at, br.route_name, br.id as route_id
+       FROM bus_scans bs JOIN bus_routes br ON br.id=bs.route_id
+       WHERE bs.student_id=$1 ORDER BY bs.scanned_at DESC LIMIT 1`,
+      [req.params.studentId]
+    );
+    res.json(r.rows[0] ? { source: 'db', ...r.rows[0] } : null);
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── OneRoster sync (admin-triggered + cron) ───────────────────────────────────
+app.post('/api/admin/oneroster-sync', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const result = await runFullSync({ query }, req.session.schoolId);
+    broadcast(req.session.schoolId, { type: 'sync' });
+    res.json({ ok: true, result });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── LTI 1.3 Advantage ────────────────────────────────────────────────────────
+app.get('/lti/login',  handleOidcLogin);
+app.post('/lti/login', handleOidcLogin);
+app.post('/lti/launch', express.urlencoded({ extended: false }), handleLaunch);
+app.get('/lti/deeplink', requireAuth, handleDeepLink);
+
+app.post('/api/admin/lti/platform', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const { platformName, issuer, clientId, authEndpoint, jwksUri, tokenEndpoint } = req.body;
+    if (!issuer || !clientId || !authEndpoint || !jwksUri || !tokenEndpoint)
+      return res.status(400).json({ error: 'All platform fields required' });
+    const schoolR = await query('SELECT district_id FROM schools WHERE id=$1', [req.session.schoolId]);
+    const id = await registerPlatform({
+      districtId: schoolR.rows[0]?.district_id,
+      platformName, issuer, clientId, authEndpoint, jwksUri, tokenEndpoint,
+    });
+    res.json({ ok: true, id });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+app.get('/api/admin/lti/platforms', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  const schoolR = await query('SELECT district_id FROM schools WHERE id=$1', [req.session.schoolId]);
+  const r = await query('SELECT id, platform_name, issuer, client_id, created_at FROM lti_platforms WHERE district_id=$1', [schoolR.rows[0]?.district_id]);
+  res.json(r.rows);
+});
+
+// ── SSO: Clever (wired) ───────────────────────────────────────────────────────
+app.get('/auth/clever', async (req, res) => {
+  try {
+    const redirect = `${process.env.APP_URL || 'http://localhost:3000'}/auth/clever/callback`;
+    if (!process.env.CLEVER_CLIENT_ID) return res.redirect('/?clever=sandbox'); // demo fallback
+    const url = await cleverAuthUrl(redirect);
+    res.redirect(url);
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
 });
 
 app.get('/auth/clever/callback', async (req, res) => {
-  // In production: exchange code for token, pull identity from Clever
-  // For sandbox: redirect to demo login
-  res.redirect('/?clever=sandbox');
+  try {
+    if (!req.query.code || !process.env.CLEVER_CLIENT_ID) return res.redirect('/?clever=sandbox');
+    const redirect = `${process.env.APP_URL || 'http://localhost:3000'}/auth/clever/callback`;
+    const user = await cleverCallback(req.query.code, redirect);
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    req.session.schoolId = user.school_id;
+    req.session.consentTier = user.consent_tier || 3;
+    const dest = user.role === 'parent' ? '/' : user.role === 'teacher' ? '/#attendance' : '/#admin';
+    res.redirect(dest);
+  } catch (e) {
+    console.error('[sso] Clever callback error:', e.message);
+    res.redirect('/?error=clever_sso_failed');
+  }
+});
+
+// ── SSO: ClassLink ────────────────────────────────────────────────────────────
+app.get('/auth/classlink', async (req, res) => {
+  try {
+    const redirect = `${process.env.APP_URL || 'http://localhost:3000'}/auth/classlink/callback`;
+    const url = await classLinkAuthUrl(redirect);
+    res.redirect(url);
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+app.get('/auth/classlink/callback', async (req, res) => {
+  try {
+    const redirect = `${process.env.APP_URL || 'http://localhost:3000'}/auth/classlink/callback`;
+    const user = await classLinkCallback(req.query.code, redirect);
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    req.session.schoolId = user.school_id;
+    req.session.consentTier = user.consent_tier || 3;
+    res.redirect('/');
+  } catch (e) {
+    console.error('[sso] ClassLink callback error:', e.message);
+    res.redirect('/?error=classlink_sso_failed');
+  }
+});
+
+// ── SSO: SAML 2.0 (Google Workspace / Microsoft Education) ───────────────────
+app.get('/auth/saml', async (req, res) => {
+  try {
+    const url = await samlAuthUrl(req);
+    res.redirect(url);
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+app.post('/auth/saml/callback', express.urlencoded({ extended: false }), async (req, res) => {
+  try {
+    const user = await samlCallback(req);
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    req.session.schoolId = user.school_id;
+    req.session.consentTier = user.consent_tier || 3;
+    res.redirect('/');
+  } catch (e) {
+    console.error('[sso] SAML callback error:', e.message);
+    res.redirect('/?error=saml_sso_failed');
+  }
+});
+
+// SAML metadata (required by IdP for trust registration)
+app.get('/auth/saml/metadata', (req, res) => {
+  try {
+    const { getSaml } = require('./auth-sso');
+    res.type('application/xml');
+    res.send('<!-- SAML metadata: configure SAML_ENTRY_POINT and SAML_IDP_CERT to enable -->');
+  } catch (e) { res.status(500).send(e.message); }
+});
+
+// ── EdFi sync ─────────────────────────────────────────────────────────────────
+app.post('/api/admin/edfi-sync', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const result = await runEdFiSync({ query }, req.session.schoolId);
+    broadcast(req.session.schoolId, { type: 'sync' });
+    res.json({ ok: true, result });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── LMS grade sync (Canvas + Google Classroom) ────────────────────────────────
+app.post('/api/admin/canvas-sync', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const result = await syncCanvasGrades({ query }, req.session.schoolId);
+    broadcast(req.session.schoolId, { type: 'sync' });
+    res.json({ ok: true, result });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+app.post('/api/admin/google-classroom-sync', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const result = await syncGoogleClassroomGrades({ query }, req.session.schoolId, req.body.token);
+    broadcast(req.session.schoolId, { type: 'sync' });
+    res.json({ ok: true, result });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── Chronic Absenteeism (ESSA) ────────────────────────────────────────────────
+app.get('/api/admin/reports/chronic-absenteeism', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const report = await getChronicAbsenteeismReport(req.session.schoolId, req.query.from);
+    res.json(report);
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+app.get('/api/district/reports/chronic-absenteeism', requireAuth, requireRole('district_admin'), async (req, res) => {
+  try {
+    const schoolR = await query('SELECT district_id FROM schools WHERE id=$1', [req.session.schoolId]);
+    const districtId = schoolR.rows[0]?.district_id;
+    if (!districtId) return res.status(400).json({ error: 'No district linked to this school' });
+    const report = await getDistrictAbsenteeismReport(districtId, req.query.from);
+    res.json(report);
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+app.get('/api/admin/reports/weekly', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const report = await getWeeklyReport(req.session.schoolId);
+    res.json(report);
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── Intervention Rules Engine ─────────────────────────────────────────────────
+app.get('/api/admin/rules', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const schoolR = await query('SELECT district_id FROM schools WHERE id=$1', [req.session.schoolId]);
+    const districtId = schoolR.rows[0]?.district_id;
+    if (!districtId) return res.json({ using_defaults: true, defaults: { absence_watch:1, absence_high:2, absence_critical:3, missing_watch:1, missing_high:2 } });
+    const r = await query(
+      `SELECT rule_absence_watch, rule_absence_high, rule_absence_critical,
+              rule_missing_watch, rule_missing_high FROM districts WHERE id=$1`,
+      [districtId]
+    );
+    res.json(r.rows[0] || {});
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+app.put('/api/admin/rules', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
+  try {
+    const { absence_watch, absence_high, absence_critical, missing_watch, missing_high } = req.body;
+    const schoolR = await query('SELECT district_id FROM schools WHERE id=$1', [req.session.schoolId]);
+    const districtId = schoolR.rows[0]?.district_id;
+    if (!districtId) return res.status(400).json({ error: 'No district linked' });
+
+    await query(`
+      UPDATE districts SET
+        rule_absence_watch=$1, rule_absence_high=$2, rule_absence_critical=$3,
+        rule_missing_watch=$4, rule_missing_high=$5
+      WHERE id=$6
+    `, [absence_watch, absence_high, absence_critical, missing_watch, missing_high, districtId]);
+
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+});
+
+// ── Health ────────────────────────────────────────────────────────────────────
+app.get('/health', async (req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ status: 'ok', uptime: process.uptime(), compliance: ['FERPA','COPPA','SOPPA','CIPA','PPRA'] });
+  } catch (e) {
+    res.status(503).json({ status: 'error', error: safeError(e) });
+  }
 });
 
 // ── Catch-all ─────────────────────────────────────────────────────────────────
-
 app.use((req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ── Scheduled jobs ────────────────────────────────────────────────────────────
 
-// Delta sync every 15 min during school hours
+// Intervention check every 15 min during school hours
 cron.schedule('*/15 7-16 * * 1-5', async () => {
-  console.log('Running delta intervention check...');
+  try {
+    const schools = await query('SELECT id FROM schools');
+    for (const s of schools.rows) await runInterventionCheck(s.id);
+  } catch (e) { console.error('[cron] Intervention check error:', e.message); }
+});
+
+// OneRoster delta sync — every 30 min during school hours
+cron.schedule('*/30 6-17 * * 1-5', async () => {
+  try {
+    const schools = await query('SELECT id FROM schools WHERE oneroster_base_url IS NOT NULL');
+    for (const s of schools.rows) {
+      await runFullSync({ query }, s.id).catch(e =>
+        console.error(`[cron] OneRoster sync failed for school ${s.id}:`, e.message)
+      );
+    }
+  } catch (e) { console.error('[cron] OneRoster cron error:', e.message); }
+});
+
+// EdFi sync — every hour during school hours
+cron.schedule('0 7-17 * * 1-5', async () => {
   try {
     const schools = await query('SELECT id FROM schools');
     for (const s of schools.rows) {
-      await runInterventionCheck(s.id);
+      await runEdFiSync({ query }, s.id).catch(e =>
+        console.error(`[cron] EdFi sync failed for school ${s.id}:`, e.message)
+      );
     }
-  } catch (e) { console.error('Cron error:', e.message); }
+  } catch (e) { console.error('[cron] EdFi cron error:', e.message); }
+});
+
+// Canvas + Google Classroom grade sync — every 30 min during school hours
+cron.schedule('*/30 7-17 * * 1-5', async () => {
+  try {
+    const schools = await query('SELECT id FROM schools');
+    for (const s of schools.rows) {
+      await syncCanvasGrades({ query }, s.id).catch(e =>
+        console.error(`[cron] Canvas sync failed for school ${s.id}:`, e.message)
+      );
+      await syncGoogleClassroomGrades({ query }, s.id).catch(e =>
+        console.error(`[cron] Google Classroom sync failed for school ${s.id}:`, e.message)
+      );
+    }
+  } catch (e) { console.error('[cron] LMS sync cron error:', e.message); }
+});
+
+// Data retention enforcement — runs nightly at 2am
+cron.schedule('0 2 * * *', async () => {
+  console.log('[cron] Running data retention enforcement...');
+  try { await enforceRetentionPolicies(); }
+  catch (e) { console.error('[cron] Retention error:', e.message); }
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-
 async function start() {
   await initDb();
   if (process.env.LOAD_SANDBOX === 'true') {

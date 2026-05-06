@@ -4,12 +4,18 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SchoolBridge</title>
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#2563eb"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="SchoolBridge"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <style>
     html { scroll-behavior: smooth; }
     .fade-in { animation: fadeIn .25s ease; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
     .priority-critical { border-left: 4px solid #ef4444; }
     .priority-high     { border-left: 4px solid #f59e0b; }
     .priority-low      { border-left: 4px solid #3b82f6; }
@@ -18,5 +24,10 @@
 <body class="bg-slate-50 font-sans text-slate-800 min-h-screen">
 <div id="app"></div>
 <script src="/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
 </body>
 </html>

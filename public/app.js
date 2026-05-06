@@ -8,8 +8,8 @@ const S = {
 // ── i18n ──────────────────────────────────────────────────────────────────────
 const LANGS = { en:'English', es:'Español', zh:'中文', ht:'Kreyòl', vi:'Tiếng Việt', ar:'العربية', ko:'한국어', pt:'Português' };
 const TR = {
-  en:{ signin:'Sign In',email:'Email',password:'Password',home:'Home',messages:'Messages',privacy:'Privacy',attendance:'Attendance',behavior:'Behavior',overview:'Overview',students:'Students',present:'Present',absent:'Absent',tardy:'Tardy',excused:'Excused',recentGrades:'Recent Grades',upcomingDue:'Upcoming Due',behaviorNotes:'Behavior Notes',actionRequired:'Action Required',missing:'MISSING',takeAttendance:'Take Attendance',submitAttendance:'Submit Attendance',logBehavior:'Log Behavior Note',section:'Section',student:'Student',note:'Note',saveNote:'Save Note',positive:'⭐ Positive',neutral:'📝 Neutral',concern:'⚠️ Concern',newMessage:'New Message',send:'Send',noMessages:'No messages yet',dataPrivacy:'Data Privacy',runCheck:'Run Intervention Check',absentToday:'Absent Today',alertsToday:'Alerts Today',teachers:'Teachers',tapReply:'↩ Tap to reply',interventionRunning:'Intervention engine running…',behaviorSaved:'Behavior note saved',selectStudentNote:'Select a student and write a note',noRecipient:'No recipient — tap a teacher name from your feed first.',interventionComplete:'Intervention check complete',newAlerts:'new alerts generated',alreadySubmitted:'✓ Submitted today',messageParent:'Message Parent',sendReply:'Send Reply',attendanceSaved:'Attendance submitted ✓' },
-  es:{ signin:'Iniciar sesión',email:'Correo electrónico',password:'Contraseña',home:'Inicio',messages:'Mensajes',privacy:'Privacidad',attendance:'Asistencia',behavior:'Conducta',overview:'Resumen',students:'Estudiantes',present:'Presente',absent:'Ausente',tardy:'Tarde',excused:'Justificado',recentGrades:'Calificaciones recientes',upcomingDue:'Próximas entregas',behaviorNotes:'Notas de conducta',actionRequired:'Acción requerida',missing:'FALTANTE',takeAttendance:'Tomar asistencia',submitAttendance:'Enviar asistencia',logBehavior:'Registrar conducta',section:'Sección',student:'Estudiante',note:'Nota',saveNote:'Guardar nota',positive:'⭐ Positivo',neutral:'📝 Neutral',concern:'⚠️ Preocupación',newMessage:'Nuevo mensaje',send:'Enviar',noMessages:'Sin mensajes aún',dataPrivacy:'Privacidad de datos',runCheck:'Ejecutar verificación',absentToday:'Ausentes hoy',alertsToday:'Alertas de hoy',teachers:'Maestros',tapReply:'↩ Toca para responder',interventionRunning:'Motor de intervención ejecutando…',behaviorSaved:'Nota guardada',selectStudentNote:'Selecciona un estudiante y escribe una nota',noRecipient:'Sin destinatario — toca el nombre de un maestro primero.',interventionComplete:'Verificación completa',newAlerts:'nuevas alertas generadas',alreadySubmitted:'✓ Enviada hoy',messageParent:'Mensaje al padre',sendReply:'Enviar respuesta',attendanceSaved:'Asistencia enviada ✓' },
+  en:{ signin:'Sign In',email:'Email',password:'Password',home:'Home',messages:'Messages',privacy:'Privacy',attendance:'Attendance',behavior:'Behavior',overview:'Overview',students:'Students',present:'Present',absent:'Absent',tardy:'Tardy',excused:'Excused',recentGrades:'Recent Grades',upcomingDue:'Upcoming Due',behaviorNotes:'Behavior Notes',actionRequired:'Action Required',missing:'MISSING',takeAttendance:'Take Attendance',submitAttendance:'Submit Attendance',logBehavior:'Log Behavior Note',section:'Section',student:'Student',note:'Note',saveNote:'Save Note',positive:'⭐ Positive',neutral:'📝 Neutral',concern:'⚠️ Concern',newMessage:'New Message',send:'Send',noMessages:'No messages yet',dataPrivacy:'Data Privacy',runCheck:'Run Intervention Check',absentToday:'Absent Today',alertsToday:'Alerts Today',teachers:'Teachers',tapReply:'↩ Tap to reply',interventionRunning:'Intervention engine running…',behaviorSaved:'Behavior note saved',selectStudentNote:'Select a student and write a note',noRecipient:'No recipient — tap a teacher name from your feed first.',interventionComplete:'Intervention check complete',newAlerts:'new alerts generated',alreadySubmitted:'✓ Submitted today',messageParent:'Message Parent',sendReply:'Send Reply',attendanceSaved:'Attendance submitted ✓',busOnWay:'Bus on the way',busArrived:'Bus arrived at school',busHome:'At home',busUnknown:'Location unknown',justifyAbsence:'Submit Excuse',justificationSent:'Excuse submitted ✓',writeReason:'Reason for absence…',logisticallyPresent:'Scanned on bus — not yet in class' },
+  es:{ signin:'Iniciar sesión',email:'Correo electrónico',password:'Contraseña',home:'Inicio',messages:'Mensajes',privacy:'Privacidad',attendance:'Asistencia',behavior:'Conducta',overview:'Resumen',students:'Estudiantes',present:'Presente',absent:'Ausente',tardy:'Tarde',excused:'Justificado',recentGrades:'Calificaciones recientes',upcomingDue:'Próximas entregas',behaviorNotes:'Notas de conducta',actionRequired:'Acción requerida',missing:'FALTANTE',takeAttendance:'Tomar asistencia',submitAttendance:'Enviar asistencia',logBehavior:'Registrar conducta',section:'Sección',student:'Estudiante',note:'Nota',saveNote:'Guardar nota',positive:'⭐ Positivo',neutral:'📝 Neutral',concern:'⚠️ Preocupación',newMessage:'Nuevo mensaje',send:'Enviar',noMessages:'Sin mensajes aún',dataPrivacy:'Privacidad de datos',runCheck:'Ejecutar verificación',absentToday:'Ausentes hoy',alertsToday:'Alertas de hoy',teachers:'Maestros',tapReply:'↩ Toca para responder',interventionRunning:'Motor de intervención ejecutando…',behaviorSaved:'Nota guardada',selectStudentNote:'Selecciona un estudiante y escribe una nota',noRecipient:'Sin destinatario — toca el nombre de un maestro primero.',interventionComplete:'Verificación completa',newAlerts:'nuevas alertas generadas',alreadySubmitted:'✓ Enviada hoy',messageParent:'Mensaje al padre',sendReply:'Enviar respuesta',attendanceSaved:'Asistencia enviada ✓',busOnWay:'Autobús en camino',busArrived:'Autobús llegó a la escuela',busHome:'En casa',busUnknown:'Ubicación desconocida',justifyAbsence:'Enviar justificación',justificationSent:'Justificación enviada ✓',writeReason:'Motivo de ausencia…',logisticallyPresent:'Escaneado en autobús — aún no en clase' },
   ht:{ signin:'Konekte',email:'Imèl',password:'Modpas',home:'Lakay',messages:'Mesaj',privacy:'Vi prive',attendance:'Prezans',behavior:'Konpòtman',overview:'Apèsi',students:'Elèv',present:'Prezan',absent:'Absan',tardy:'An reta',excused:'Eskize',recentGrades:'Nòt resan',upcomingDue:'Travay k ap vini',behaviorNotes:'Nòt konpòtman',actionRequired:'Aksyon obligatwa',missing:'MANKE',takeAttendance:'Pran prezans',submitAttendance:'Soumèt prezans',logBehavior:'Anrejistre nòt',section:'Seksyon',student:'Elèv',note:'Nòt',saveNote:'Sove nòt',positive:'⭐ Pozitif',neutral:'📝 Nèt',concern:'⚠️ Enkyetid',newMessage:'Nouvo mesaj',send:'Voye',noMessages:'Pa gen mesaj ankò',dataPrivacy:'Vi prive done',runCheck:'Kouri verifikasyon',absentToday:'Absan jodi a',alertsToday:'Alèt jodi a',teachers:'Pwofesè',tapReply:'↩ Klike pou reponn',interventionRunning:'Motè entèvansyon ap kouri…',behaviorSaved:'Nòt sove',selectStudentNote:'Chwazi yon elèv epi ekri yon nòt',noRecipient:'Pa gen destinatè — peze non pwofesè dabò.',interventionComplete:'Verifikasyon konplè',newAlerts:'nouvo alèt jenere',alreadySubmitted:'✓ Soumèt jodi a',messageParent:'Mesaj paran',sendReply:'Voye repons',attendanceSaved:'Prezans soumèt ✓' },
   vi:{ signin:'Đăng nhập',email:'Email',password:'Mật khẩu',home:'Trang chủ',messages:'Tin nhắn',privacy:'Quyền riêng tư',attendance:'Điểm danh',behavior:'Hành vi',overview:'Tổng quan',students:'Học sinh',present:'Có mặt',absent:'Vắng mặt',tardy:'Trễ',excused:'Có phép',recentGrades:'Điểm gần đây',upcomingDue:'Bài sắp hạn',behaviorNotes:'Ghi chú hành vi',actionRequired:'Cần hành động',missing:'THIẾU',takeAttendance:'Điểm danh',submitAttendance:'Gửi điểm danh',logBehavior:'Ghi chú hành vi',section:'Lớp',student:'Học sinh',note:'Ghi chú',saveNote:'Lưu ghi chú',positive:'⭐ Tích cực',neutral:'📝 Bình thường',concern:'⚠️ Đáng lo',newMessage:'Tin nhắn mới',send:'Gửi',noMessages:'Chưa có tin nhắn',dataPrivacy:'Quyền riêng tư',runCheck:'Kiểm tra can thiệp',absentToday:'Vắng mặt hôm nay',alertsToday:'Cảnh báo hôm nay',teachers:'Giáo viên',tapReply:'↩ Nhấn để trả lời',interventionRunning:'Đang kiểm tra…',behaviorSaved:'Đã lưu ghi chú',selectStudentNote:'Chọn học sinh và viết ghi chú',noRecipient:'Không có người nhận — nhấn tên giáo viên trước.',interventionComplete:'Kiểm tra hoàn tất',newAlerts:'cảnh báo mới',alreadySubmitted:'✓ Đã gửi hôm nay',messageParent:'Nhắn phụ huynh',sendReply:'Gửi trả lời',attendanceSaved:'Đã gửi điểm danh ✓' },
   ar:{ signin:'تسجيل الدخول',email:'البريد الإلكتروني',password:'كلمة المرور',home:'الرئيسية',messages:'الرسائل',privacy:'الخصوصية',attendance:'الحضور',behavior:'السلوك',overview:'نظرة عامة',students:'الطلاب',present:'حاضر',absent:'غائب',tardy:'متأخر',excused:'بعذر',recentGrades:'الدرجات الأخيرة',upcomingDue:'المهام القادمة',behaviorNotes:'ملاحظات السلوك',actionRequired:'إجراء مطلوب',missing:'مفقود',takeAttendance:'أخذ الحضور',submitAttendance:'إرسال الحضور',logBehavior:'تسجيل ملاحظة',section:'الفصل',student:'الطالب',note:'ملاحظة',saveNote:'حفظ',positive:'⭐ إيجابي',neutral:'📝 محايد',concern:'⚠️ مقلق',newMessage:'رسالة جديدة',send:'إرسال',noMessages:'لا رسائل',dataPrivacy:'خصوصية البيانات',runCheck:'فحص التدخل',absentToday:'الغائبون اليوم',alertsToday:'تنبيهات اليوم',teachers:'المعلمون',tapReply:'↩ اضغط للرد',interventionRunning:'جارٍ التحقق…',behaviorSaved:'تم حفظ الملاحظة',selectStudentNote:'اختر طالباً واكتب ملاحظة',noRecipient:'لا يوجد مستلم — اضغط اسم المعلم أولاً.',interventionComplete:'اكتمل الفحص',newAlerts:'تنبيهات جديدة',alreadySubmitted:'✓ تم الإرسال اليوم',messageParent:'مراسلة ولي الأمر',sendReply:'إرسال الرد',attendanceSaved:'تم إرسال الحضور ✓' },
@@ -98,6 +98,57 @@ const priorityBadge = p => {
   return `<span class="text-xs font-bold px-2 py-0.5 rounded-full ${c.badge}">${c.label}</span>`;
 };
 
+// ── Bus progress bar ──────────────────────────────────────────────────────────
+function renderBusCard(bus, studentTransportStatus) {
+  const steps = [
+    { key:'home',       label:'Home',       icon:'🏠' },
+    { key:'on_bus',     label:'On Bus',     icon:'🚌' },
+    { key:'at_school',  label:'At School',  icon:'🏫' },
+  ];
+  const status = studentTransportStatus || (bus?.scan_type === 'board' ? 'on_bus' : bus?.scan_type === 'alight' ? 'at_school' : 'unknown');
+  const activeIdx = steps.findIndex(s => s.key === status);
+
+  if (status === 'unknown' || activeIdx === -1) return '';
+
+  const stepsHtml = steps.map((s, i) => {
+    const done    = i < activeIdx;
+    const active  = i === activeIdx;
+    const dotCls  = active ? 'bg-blue-600 ring-4 ring-blue-100' : done ? 'bg-emerald-500' : 'bg-slate-200';
+    const lblCls  = active ? 'text-blue-700 font-bold' : done ? 'text-emerald-600 font-medium' : 'text-slate-400';
+    return `
+    <div class="flex flex-col items-center flex-1">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center text-sm ${dotCls} transition-all">
+        ${done ? '✓' : s.icon}
+      </div>
+      <span class="text-xs mt-1 ${lblCls}">${s.label}</span>
+    </div>`;
+  }).join('');
+
+  const lineHtml = steps.slice(0, -1).map((_, i) => {
+    const filled = i < activeIdx;
+    return `<div class="flex-1 h-1 rounded-full mx-1 ${filled ? 'bg-emerald-400' : 'bg-slate-200'} self-center" style="margin-top:-14px"></div>`;
+  }).join('');
+
+  const timeStr = bus?.scanned_at ? new Date(bus.scanned_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+
+  return `
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-3 overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
+      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">🚌 Bus Status</span>
+      ${timeStr ? `<span class="text-xs text-slate-400">Updated ${timeStr}</span>` : ''}
+    </div>
+    <div class="px-4 py-4">
+      <div class="flex items-start relative">
+        ${stepsHtml}
+      </div>
+      <div class="flex px-3.5 -mt-3">
+        ${lineHtml}
+      </div>
+      ${bus?.route_name ? `<p class="text-xs text-slate-400 text-center mt-3">Route: ${esc(bus.route_name)}</p>` : ''}
+    </div>
+  </div>`;
+}
+
 // Compute grade trend from recent vs older scores (+ = improving, - = declining)
 function gradeTrend(grades) {
   const scored = grades.filter(g => g.score != null && g.max_score > 0);
@@ -164,8 +215,27 @@ function renderLogin() {
           </button>
         </form>
 
+        <!-- SSO buttons -->
+        <div class="mt-5 pt-5 border-t border-slate-100">
+          <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Sign in with</p>
+          <div class="flex gap-2 mb-4">
+            <a href="/auth/clever" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-sm font-medium text-slate-600 hover:text-blue-700">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+              Clever
+            </a>
+            <a href="/auth/classlink" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-sm font-medium text-slate-600 hover:text-emerald-700">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="4"/></svg>
+              ClassLink
+            </a>
+            <a href="/auth/saml" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-sm font-medium text-slate-600 hover:text-purple-700">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93V18c0-.55.45-1 1-1s1 .45 1 1v1.93c-2.28-.47-4.11-2.3-4.58-4.58H10c.55 0 1 .45 1 1s-.45 1-1 1H6.07C5.6 14.11 4 12.14 4 10c0-4.42 3.58-8 8-8s8 3.58 8 8c0 2.14-1.6 4.11-2.07 5.35H14c-.55 0-1-.45-1-1s.45-1 1-1h1.58c-.47 2.28-2.3 4.11-4.58 4.58z"/></svg>
+              Google / MS
+            </a>
+          </div>
+        </div>
+
         <!-- Demo tiles -->
-        <div class="mt-6 pt-6 border-t border-slate-100">
+        <div class="pt-5 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Demo Accounts</p>
           <div class="space-y-2">
             <button onclick="quickLogin('parent@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
@@ -338,7 +408,7 @@ function renderFeed() {
   if (!S.feed.length) return `<div class="text-center py-16 text-slate-400">No students linked to your account.</div>`;
 
   return S.feed.map(child => {
-    const { student, alerts, attendance, grades, upcoming, behavior, shadow } = child;
+    const { student, alerts, attendance, grades, upcoming, behavior, shadow, bus } = child;
     const urgentAlerts = alerts.filter(a => a.priority === 'critical' || a.priority === 'high');
     const infoAlerts   = alerts.filter(a => a.priority === 'low');
     const presentDays  = attendance.filter(a => a.status === 'present').length;
@@ -443,6 +513,8 @@ function renderFeed() {
         }).join('')}
       </div>` : ''}
 
+      ${renderBusCard(bus, student.transport_status)}
+
       <!-- Attendance Grid -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-3 overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
@@ -455,9 +527,12 @@ function renderFeed() {
               const d = new Date(a.date);
               const day = d.toLocaleDateString('en-US',{weekday:'short'});
               const dt  = d.toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
+              const canJustify = a.status === 'absent' && !a.justification;
               return `<div class="flex flex-col items-center gap-1 flex-1 min-w-[36px]">
                 <span class="text-xs text-slate-400">${day}</span>
-                <span title="${dt}" class="w-full text-center text-xs font-bold py-1.5 rounded-lg ${attColor(a.status)} capitalize">${a.status[0].toUpperCase()}</span>
+                <span title="${dt}" class="w-full text-center text-xs font-bold py-1.5 rounded-lg ${attColor(a.status)} capitalize${canJustify ? ' cursor-pointer ring-1 ring-red-300' : ''}"
+                  ${canJustify ? `onclick="openJustify(${a.id},'${esc(student.name)}','${dt}')"` : ''}
+                >${a.justification ? '✓' : a.status[0].toUpperCase()}</span>
                 <span class="text-xs text-slate-300">${dt}</span>
               </div>`;
             }).join('')}
@@ -519,6 +594,48 @@ async function markAlertRead(id, el) {
   await POST(`/api/alerts/${id}/read`).catch(() => {});
   el.style.opacity = '0.35';
   el.style.pointerEvents = 'none';
+}
+
+// ── Absence Justification modal ───────────────────────────────────────────────
+function openJustify(attendanceId, studentName, dateStr) {
+  const existing = document.getElementById('justify-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'justify-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center;padding:0';
+  modal.innerHTML = `
+    <div class="bg-white rounded-t-2xl w-full max-w-lg p-6" style="animation:slideUp .2s ease">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="font-bold text-slate-800">Submit Excuse</p>
+          <p class="text-xs text-slate-400">${esc(studentName)} · Absent ${esc(dateStr)}</p>
+        </div>
+        <button onclick="document.getElementById('justify-modal').remove()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <textarea id="justify-text" rows="4" placeholder="${t('writeReason')}"
+        class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-4"></textarea>
+      <button onclick="submitJustification(${attendanceId})"
+        class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+        ${t('justifyAbsence')}
+      </button>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  setTimeout(() => document.getElementById('justify-text')?.focus(), 100);
+}
+
+async function submitJustification(attendanceId) {
+  const text = document.getElementById('justify-text')?.value?.trim();
+  if (!text || text.length < 5) { showToast('Please provide a reason (min 5 characters)', 'error'); return; }
+  try {
+    await POST(`/api/attendance/${attendanceId}/justify`, { justification: text });
+    document.getElementById('justify-modal')?.remove();
+    showToast(t('justificationSent'), 'success');
+    S.feed = null; S._feedLoaded = false; render();
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
@@ -1156,6 +1273,19 @@ function spinner() {
   return `<div class="flex items-center justify-center py-20"><div class="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div></div>`;
 }
 
+// ── Offline banner ────────────────────────────────────────────────────────────
+function initOfflineBanner() {
+  const banner = document.createElement('div');
+  banner.id = 'offline-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#92400e;color:#fff;text-align:center;padding:8px 16px;font-size:13px;font-weight:500;display:none';
+  banner.textContent = '📶 You\'re offline — showing cached data. Changes will sync when reconnected.';
+  document.body.prepend(banner);
+
+  window.addEventListener('online',  () => { banner.style.display = 'none';  S.offline = false; });
+  window.addEventListener('offline', () => { banner.style.display = 'block'; S.offline = true;  });
+  if (!navigator.onLine) { banner.style.display = 'block'; S.offline = true; }
+}
+
 // ── Live updates via SSE ──────────────────────────────────────────────────────
 let _sse = null;
 function connectSSE() {
@@ -1177,6 +1307,7 @@ function connectSSE() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+initOfflineBanner();
 render(); // show login immediately while auth check runs
 (async () => {
   try {
