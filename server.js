@@ -1340,12 +1340,13 @@ async function patchSandboxBusData(schoolId) {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Delete any stale Marcus bus scans not from today, then insert today's scan
+  // Clean up all of Marcus's bus scans for today except one (accumulate on each restart)
+  // then ensure exactly one 7:30 AM morning scan exists
   await query(`DELETE FROM bus_scans WHERE student_id=$1 AND scanned_at::date != $2`, [marcusId, today]);
+  await query(`DELETE FROM bus_scans WHERE student_id=$1 AND route_id=$2 AND scanned_at::date=$3`, [marcusId, routeId, today]);
   await query(`
     INSERT INTO bus_scans (student_id, route_id, stop_id, scan_type, scanned_at)
     VALUES ($1, $2, $3, 'board', $4::date + INTERVAL '7 hours 30 minutes')
-    ON CONFLICT DO NOTHING
   `, [marcusId, routeId, stopId, today]);
 
   // Ensure Marcus has no present attendance today so LP fires
