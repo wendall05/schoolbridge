@@ -217,27 +217,8 @@ function renderLogin() {
           </button>
         </form>
 
-        <!-- SSO buttons -->
-        <div class="mt-5 pt-5 border-t border-slate-100">
-          <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Sign in with</p>
-          <div class="flex gap-2">
-            <a href="/auth/clever" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-sm font-medium text-slate-600 hover:text-blue-700">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-              Clever
-            </a>
-            <a href="/auth/classlink" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-sm font-medium text-slate-600 hover:text-emerald-700">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="4"/></svg>
-              ClassLink
-            </a>
-            <a href="/auth/saml" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-sm font-medium text-slate-600 hover:text-purple-700">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-              Google / MS
-            </a>
-          </div>
-        </div>
-
         <!-- Demo tiles -->
-        <div class="mt-5 pt-5 border-t border-slate-100">
+        <div class="mt-6 pt-6 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Demo Accounts</p>
           <div class="space-y-2">
             <button onclick="quickLogin('parent@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
@@ -270,13 +251,6 @@ function renderLogin() {
           </div>
         </div>
 
-        <!-- Language picker -->
-        <div class="mt-5 pt-5 border-t border-slate-100">
-          <p class="text-xs text-slate-400 text-center mb-2">Language / Idioma / 语言</p>
-          <div class="flex flex-wrap justify-center gap-1.5">
-            ${Object.entries(LANGS).map(([k,v]) => `<button onclick="setLang('${k}')" class="text-xs px-2.5 py-1 rounded-full border transition-colors ${S.lang===k?'bg-blue-600 text-white border-blue-600':'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}">${v}</button>`).join('')}
-          </div>
-        </div>
       </div>
 
       <p class="text-center text-blue-300 text-xs mt-4">Lincoln Middle School · Syracuse City SD · Demo</p>

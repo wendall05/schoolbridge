@@ -4,7 +4,7 @@
  * Offline fallback: serves cached feed data when network unavailable
  */
 
-const CACHE_NAME = 'schoolbridge-v3';
+const CACHE_NAME = 'schoolbridge-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
