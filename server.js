@@ -22,8 +22,9 @@ const { syncCanvasGrades, syncGoogleClassroomGrades } = require('./lms-sync');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// In production, don't expose internal error details to clients
-function safeError(e) {
+// In production, log internally but don't expose details to clients
+function safeError(e, context) {
+  console.error(`[error]${context ? ' ' + context + ':' : ''} ${e.message}`);
   if (process.env.NODE_ENV === 'production') return 'An error occurred';
   return e.message;
 }
@@ -98,7 +99,7 @@ app.post('/auth/login', authLimiter, async (req, res) => {
     const name = decrypt(user.name);
     const email_out = decrypt(user.email);
     res.json({ id: user.id, name, email: email_out, role: user.role, consent_tier: user.consent_tier });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.post('/auth/logout', (req, res) => {
@@ -205,7 +206,7 @@ app.get('/api/feed', requireAuth, requireRole('parent'), async (req, res) => {
     }
 
     res.json(feed);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.post('/api/alerts/:id/read', requireAuth, async (req, res) => {
@@ -237,7 +238,7 @@ app.post('/api/attendance/:id/justify', requireAuth, requireRole('parent'), asyn
 
     await logDataAccess(req.session.userId, r.rows[0].student_id, 'absence_justification', 'parent', 1, req.ip);
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── Parent: Consent / Data Sovereignty ───────────────────────────────────────
@@ -293,7 +294,7 @@ app.post('/api/rights-request', requireAuth, async (req, res) => {
     }
 
     res.json({ ok: true, request_id: id });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // PPRA opt-out
@@ -463,7 +464,7 @@ app.post('/api/admin/sync', requireAuth, requireRole('admin','district_admin'), 
     const alerts = await runInterventionCheck(req.session.schoolId);
     broadcast(req.session.schoolId, { type: 'sync' });
     res.json({ ok: true, alerts_created: alerts.length, alerts });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.get('/api/admin/student/:id', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
@@ -504,7 +505,7 @@ app.get('/api/admin/student/:id', requireAuth, requireRole('admin','district_adm
       parents: parents.rows.map(p => ({ ...p, name: decrypt(p.name) })),
       stats: { absences, missing },
     });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── Aggregator endpoint (Bus + Attendance + Grades) ───────────────────────────
@@ -556,7 +557,7 @@ app.get('/api/aggregate/:studentId', requireAuth, async (req, res) => {
       grades: recentGrades.rows,
       bus_event: busStatus.rows[0] || null,
     });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── Shadow IT ingest ──────────────────────────────────────────────────────────
@@ -619,7 +620,7 @@ app.post('/api/bus/scan', async (req, res) => {
     }
 
     res.json({ ok: true, status });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // Bus GPS ping (from vehicle tracking system)
@@ -648,7 +649,7 @@ app.post('/api/bus/ping', async (req, res) => {
     }
 
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // Real-time bus location for parent dashboard
@@ -666,7 +667,7 @@ app.get('/api/bus/location/:routeId', requireAuth, async (req, res) => {
       [req.params.routeId]
     );
     res.json(r.rows[0] ? { source: 'db', ...r.rows[0] } : { source: 'none' });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // Student's bus status (Redis-first)
@@ -690,7 +691,7 @@ app.get('/api/bus/student/:studentId', requireAuth, async (req, res) => {
       [req.params.studentId]
     );
     res.json(r.rows[0] ? { source: 'db', ...r.rows[0] } : null);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── OneRoster sync (admin-triggered + cron) ───────────────────────────────────
@@ -699,7 +700,7 @@ app.post('/api/admin/oneroster-sync', requireAuth, requireRole('admin','district
     const result = await runFullSync({ query }, req.session.schoolId);
     broadcast(req.session.schoolId, { type: 'sync' });
     res.json({ ok: true, result });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── LTI 1.3 Advantage ────────────────────────────────────────────────────────
@@ -719,7 +720,7 @@ app.post('/api/admin/lti/platform', requireAuth, requireRole('admin','district_a
       platformName, issuer, clientId, authEndpoint, jwksUri, tokenEndpoint,
     });
     res.json({ ok: true, id });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.get('/api/admin/lti/platforms', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
@@ -735,7 +736,7 @@ app.get('/auth/clever', async (req, res) => {
     if (!process.env.CLEVER_CLIENT_ID) return res.redirect('/?clever=sandbox'); // demo fallback
     const url = await cleverAuthUrl(redirect);
     res.redirect(url);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.get('/auth/clever/callback', async (req, res) => {
@@ -761,7 +762,7 @@ app.get('/auth/classlink', async (req, res) => {
     const redirect = `${process.env.APP_URL || 'http://localhost:3000'}/auth/classlink/callback`;
     const url = await classLinkAuthUrl(redirect);
     res.redirect(url);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.get('/auth/classlink/callback', async (req, res) => {
@@ -784,7 +785,7 @@ app.get('/auth/saml', async (req, res) => {
   try {
     const url = await samlAuthUrl(req);
     res.redirect(url);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.post('/auth/saml/callback', express.urlencoded({ extended: false }), async (req, res) => {
@@ -816,7 +817,7 @@ app.post('/api/admin/edfi-sync', requireAuth, requireRole('admin','district_admi
     const result = await runEdFiSync({ query }, req.session.schoolId);
     broadcast(req.session.schoolId, { type: 'sync' });
     res.json({ ok: true, result });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── LMS grade sync (Canvas + Google Classroom) ────────────────────────────────
@@ -825,7 +826,7 @@ app.post('/api/admin/canvas-sync', requireAuth, requireRole('admin','district_ad
     const result = await syncCanvasGrades({ query }, req.session.schoolId);
     broadcast(req.session.schoolId, { type: 'sync' });
     res.json({ ok: true, result });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.post('/api/admin/google-classroom-sync', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
@@ -833,7 +834,7 @@ app.post('/api/admin/google-classroom-sync', requireAuth, requireRole('admin','d
     const result = await syncGoogleClassroomGrades({ query }, req.session.schoolId, req.body.token);
     broadcast(req.session.schoolId, { type: 'sync' });
     res.json({ ok: true, result });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── Chronic Absenteeism (ESSA) ────────────────────────────────────────────────
@@ -841,7 +842,7 @@ app.get('/api/admin/reports/chronic-absenteeism', requireAuth, requireRole('admi
   try {
     const report = await getChronicAbsenteeismReport(req.session.schoolId, req.query.from);
     res.json(report);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.get('/api/district/reports/chronic-absenteeism', requireAuth, requireRole('district_admin'), async (req, res) => {
@@ -851,14 +852,14 @@ app.get('/api/district/reports/chronic-absenteeism', requireAuth, requireRole('d
     if (!districtId) return res.status(400).json({ error: 'No district linked to this school' });
     const report = await getDistrictAbsenteeismReport(districtId, req.query.from);
     res.json(report);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.get('/api/admin/reports/weekly', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
   try {
     const report = await getWeeklyReport(req.session.schoolId);
     res.json(report);
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── Intervention Rules Engine ─────────────────────────────────────────────────
@@ -873,7 +874,7 @@ app.get('/api/admin/rules', requireAuth, requireRole('admin','district_admin'), 
       [districtId]
     );
     res.json(r.rows[0] || {});
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 app.put('/api/admin/rules', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
@@ -891,7 +892,7 @@ app.put('/api/admin/rules', requireAuth, requireRole('admin','district_admin'), 
     `, [absence_watch, absence_high, absence_critical, missing_watch, missing_high, districtId]);
 
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: safeError(e) }); }
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
 // ── Health ────────────────────────────────────────────────────────────────────
