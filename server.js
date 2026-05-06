@@ -357,7 +357,18 @@ app.get('/api/teacher/sections', requireAuth, requireRole('teacher','admin'), as
   const r = await query(`
     SELECT sec.id, sec.name, sec.subject, sec.grade,
            COUNT(ss.student_id) as student_count,
-           EXISTS(SELECT 1 FROM attendance a WHERE a.section_id=sec.id AND a.date=$3) as submitted_today
+           EXISTS(SELECT 1 FROM attendance a WHERE a.section_id=sec.id AND a.date=$3) as submitted_today,
+           COUNT(ss.student_id) FILTER (
+             WHERE EXISTS (
+               SELECT 1 FROM bus_scans bs
+               WHERE bs.student_id=ss.student_id AND bs.scan_type='board' AND bs.scanned_at::date=$3
+               AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
+               AND NOT EXISTS (
+                 SELECT 1 FROM attendance att
+                 WHERE att.student_id=ss.student_id AND att.date=$3 AND att.status IN ('present','logistically_present')
+               )
+             )
+           ) as lp_count
     FROM sections sec
     LEFT JOIN section_students ss ON ss.section_id = sec.id
     WHERE sec.teacher_id=$1 OR $2='admin'
@@ -369,12 +380,22 @@ app.get('/api/teacher/sections', requireAuth, requireRole('teacher','admin'), as
 app.get('/api/teacher/sections/:id/students', requireAuth, requireRole('teacher','admin'), async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const r = await query(`
-    SELECT s.id, s.name, s.grade, s.has_iep, s.has_504, a.status as today_status
+    SELECT s.id, s.name, s.grade, s.has_iep, s.has_504, s.transport_status,
+           a.status as today_status,
+           EXISTS (
+             SELECT 1 FROM bus_scans bs
+             WHERE bs.student_id=s.id AND bs.scan_type='board' AND bs.scanned_at::date=$2
+             AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
+             AND NOT EXISTS (
+               SELECT 1 FROM attendance att
+               WHERE att.student_id=s.id AND att.date=$2 AND att.status IN ('present','logistically_present')
+             )
+           ) as logistically_present
     FROM students s
     JOIN section_students ss ON ss.student_id = s.id
     LEFT JOIN attendance a ON a.student_id = s.id AND a.date=$2 AND a.section_id=$1
     WHERE ss.section_id=$1
-    ORDER BY s.name
+    ORDER BY logistically_present DESC, s.name
   `, [req.params.id, today]);
   res.json(r.rows.map(row => ({ ...row, name: decrypt(row.name) })));
 });
@@ -490,7 +511,8 @@ app.post('/api/admin/sync', requireAuth, requireRole('admin','district_admin'), 
 app.get('/api/admin/student/:id', requireAuth, requireRole('admin','district_admin'), async (req, res) => {
   try {
     const stuId = req.params.id;
-    const [student, attendance, grades, behavior, alerts, parents] = await Promise.all([
+    const today = new Date().toISOString().split('T')[0];
+    const [student, attendance, grades, behavior, alerts, parents, busStatus] = await Promise.all([
       // Scope to admin's school (district_admin can see across district via join)
       query(`SELECT s.* FROM students s
              JOIN schools sc ON sc.id=s.school_id
@@ -511,11 +533,17 @@ app.get('/api/admin/student/:id', requireAuth, requireRole('admin','district_adm
       query(`SELECT u.id, u.name FROM users u
              JOIN parent_students ps ON ps.parent_id=u.id
              WHERE ps.student_id=$1`, [stuId]),
+      query(`SELECT bs.scan_type, bs.scanned_at, br.route_name, br.am_arrival_expected
+             FROM bus_scans bs JOIN bus_routes br ON br.id=bs.route_id
+             WHERE bs.student_id=$1 ORDER BY bs.scanned_at DESC LIMIT 1`, [stuId]),
     ]);
     const s = student.rows[0];
     if (!s) return res.status(404).json({ error: 'Not found' });
     const absences = attendance.rows.filter(a => a.status === 'absent').length;
     const missing = grades.rows.filter(g => g.missing).length;
+    const presentToday = attendance.rows.some(a => a.date === today && ['present','logistically_present'].includes(a.status));
+    const bus = busStatus.rows[0] || null;
+    const logisticallyPresent = bus?.scan_type === 'board' && !presentToday;
     res.json({
       student: { ...s, name: decrypt(s.name) },
       attendance: attendance.rows,
@@ -524,6 +552,8 @@ app.get('/api/admin/student/:id', requireAuth, requireRole('admin','district_adm
       alerts: alerts.rows.map(a => ({ ...a, parent_name: decrypt(a.parent_name) })),
       parents: parents.rows.map(p => ({ ...p, name: decrypt(p.name) })),
       stats: { absences, missing },
+      bus,
+      logistically_present: logisticallyPresent,
     });
   } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });

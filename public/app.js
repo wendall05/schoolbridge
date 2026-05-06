@@ -814,18 +814,21 @@ function renderAttendance() {
     <h2 class="text-lg font-bold mb-1">${t('takeAttendance')}</h2>
     <p class="text-sm text-slate-400 mb-5">${new Date().toLocaleDateString(S.lang||'en',{weekday:'long',month:'long',day:'numeric'})}</p>
     <div class="space-y-3">
-      ${S.sections.map(sec => `
+      ${S.sections.map(sec => {
+        const lpCount = parseInt(sec.lp_count) || 0;
+        return `
       <button onclick="loadAttendanceSheet(${sec.id},'${esc(sec.name)}')"
-        class="w-full bg-white rounded-2xl p-4 border ${sec.submitted_today?'border-emerald-200 bg-emerald-50':'border-slate-100'} shadow-sm text-left hover:border-blue-200 hover:shadow-md transition-all">
+        class="w-full bg-white rounded-2xl p-4 border ${lpCount > 0 ? 'border-orange-300' : sec.submitted_today?'border-emerald-200 bg-emerald-50':'border-slate-100'} shadow-sm text-left hover:border-blue-200 hover:shadow-md transition-all">
         <div class="flex items-center justify-between">
-          <div>
+          <div class="flex-1">
             <p class="font-semibold text-slate-800">${esc(sec.name)}</p>
             <p class="text-sm text-slate-400">${sec.student_count} students enrolled</p>
             ${sec.submitted_today ? `<p class="text-xs text-emerald-600 font-semibold mt-0.5">${t('alreadySubmitted')}</p>` : ''}
+            ${lpCount > 0 ? `<p class="text-xs text-orange-600 font-bold mt-0.5">⚠️ ${lpCount} student${lpCount>1?'s':''} on bus — not yet in class</p>` : ''}
           </div>
-          <svg class="w-5 h-5 ${sec.submitted_today?'text-emerald-400':'text-slate-300'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${sec.submitted_today?'M5 13l4 4L19 7':'M9 5l7 7-7 7'}"/></svg>
+          <svg class="w-5 h-5 ${lpCount>0?'text-orange-400':sec.submitted_today?'text-emerald-400':'text-slate-300'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${sec.submitted_today?'M5 13l4 4L19 7':'M9 5l7 7-7 7'}"/></svg>
         </div>
-      </button>`).join('') || `<div class="text-center py-10 text-slate-400 text-sm">No sections assigned</div>`}
+      </button>`;}).join('') || `<div class="text-center py-10 text-slate-400 text-sm">No sections assigned</div>`}
     </div>
   </div>`;
 }
@@ -860,10 +863,20 @@ function renderAttendanceSheet() {
       ${absentCount ? `<span class="text-red-600 font-semibold">${absentCount} absent</span>` : ''}
       ${tardyCount  ? `<span class="text-amber-600 font-semibold">${tardyCount} tardy</span>` : ''}
     </div>
+    ${students.some(s => s.logistically_present) ? `
+    <div class="mb-4 rounded-xl bg-orange-50 border border-orange-200 p-3 flex items-start gap-2">
+      <span class="text-orange-500 text-base flex-shrink-0">⚠️</span>
+      <p class="text-xs text-orange-700 font-medium">${students.filter(s=>s.logistically_present).length} student${students.filter(s=>s.logistically_present).length>1?'s':''} scanned on bus but not yet in class. Mark present when they arrive.</p>
+    </div>` : ''}
     <div class="space-y-2 mb-6">
       ${students.map(s => `
-      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-        <p class="font-medium text-slate-800 mb-3">${esc(s.name)}</p>
+      <div class="bg-white rounded-2xl p-4 border ${s.logistically_present ? 'border-orange-300' : 'border-slate-100'} shadow-sm">
+        <div class="flex items-center gap-2 mb-3">
+          <p class="font-medium text-slate-800">${esc(s.name)}</p>
+          ${s.logistically_present ? '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 animate-pulse">🚌 On Bus</span>' : ''}
+          ${s.has_iep ? '<span class="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 font-medium">IEP</span>' : ''}
+          ${s.has_504 ? '<span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 font-medium">504</span>' : ''}
+        </div>
         <div class="grid grid-cols-4 gap-1.5">
           ${statuses.map(st => `
           <button onclick="setAttendance(${s.id},'${st}')"
@@ -1171,19 +1184,37 @@ function renderStudentDetail() {
   const data = S.params?.studentDetail;
   if (!data) return `<div class="text-slate-400 text-center py-10">Loading...</div>`;
 
-  const { student, attendance, grades, behavior, alerts, parents, stats } = data;
+  const { student, attendance, grades, behavior, alerts, parents, stats, bus, logistically_present: isLP } = data;
   const risk = riskLabel(stats.absences, stats.missing);
   const subjects = [...new Set(grades.map(g => g.subject).filter(Boolean))];
 
   return `
   <div>
-    <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center justify-between mb-4">
       <div>
         <h2 class="text-xl font-bold text-slate-800">${esc(student.name)}</h2>
         <p class="text-sm text-slate-400">${esc(student.grade)} · Lincoln Middle School</p>
       </div>
-      <span class="text-sm font-bold px-3 py-1.5 rounded-full border ${risk.cls}">${risk.label}</span>
+      <span class="text-sm font-bold px-3 py-1.5 rounded-full border ${isLP ? 'bg-orange-100 text-orange-700 border-orange-300' : risk.cls}">${isLP ? '⚠️ ON BUS' : risk.label}</span>
     </div>
+
+    ${isLP ? `
+    <div class="mb-4 rounded-xl bg-orange-500 text-white p-4 shadow-md">
+      <div class="flex items-start gap-3">
+        <span class="text-xl flex-shrink-0">⚠️</span>
+        <div>
+          <p class="font-black text-sm uppercase tracking-wide mb-0.5">Logistically Present</p>
+          <p class="text-sm text-orange-100">${esc(student.name)} was scanned onto ${bus?.route_name ? `Route: ${esc(bus.route_name)}` : 'the bus'} at ${bus?.scanned_at ? new Date(bus.scanned_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : 'unknown'} but has not been marked present in any class. Contact homeroom teacher or check hallways immediately.</p>
+        </div>
+      </div>
+    </div>` : bus ? `
+    <div class="mb-4 bg-white rounded-xl border border-slate-100 p-3 flex items-center gap-3">
+      <span class="text-xl">🚌</span>
+      <div>
+        <p class="text-xs font-semibold text-slate-700">${bus.scan_type === 'board' ? 'Boarded bus' : 'Alighted bus'} · ${bus.route_name || ''}</p>
+        <p class="text-xs text-slate-400">${bus.scanned_at ? new Date(bus.scanned_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : ''}</p>
+      </div>
+    </div>` : ''}
 
     ${(parents||[]).map(p => `
     <button onclick="nav('messages',{prefill:{to_id:${p.id},to_name:'${esc(p.name)}',student_id:${student.id},student_name:'${esc(student.name)}'}})"
