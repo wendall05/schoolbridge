@@ -243,12 +243,21 @@ function renderLogin() {
                 </div>
               </div>
             </button>
+            <button onclick="quickLogin('rosa@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">👩‍👧</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Rosa Williams — Parent</p>
+                  <p class="text-xs text-slate-400">Aaliyah · HIGH alert · attendance concern</p>
+                </div>
+              </div>
+            </button>
             <button onclick="quickLogin('thompson@lincoln.edu','teacher123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
               <div class="flex items-center gap-3">
                 <span class="text-xl">👨‍🏫</span>
                 <div>
                   <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Mr. Thompson — Math Teacher</p>
-                  <p class="text-xs text-slate-400">Period 1 · 5 students · take attendance</p>
+                  <p class="text-xs text-slate-400">Period 1 · 5 students · behavior logging</p>
                 </div>
               </div>
             </button>
@@ -257,7 +266,48 @@ function renderLogin() {
                 <span class="text-xl">🏫</span>
                 <div>
                   <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Principal Davis — Admin</p>
-                  <p class="text-xs text-slate-400">School overview · 5 students · sync log</p>
+                  <p class="text-xs text-slate-400">School overview · reports · sync log</p>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Operation Pivot accounts -->
+          <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mt-4 mb-3">Operation Pivot</p>
+          <div class="space-y-2">
+            <button onclick="quickLogin('ad@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">🏆</span>
+                <div>
+                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Davis — Athletic Director</p>
+                  <p class="text-xs text-orange-500">3 games today · 1 conflict · 4 blocked</p>
+                </div>
+              </div>
+            </button>
+            <button onclick="quickLogin('coach.football@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">🏈</span>
+                <div>
+                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Williams — Football</p>
+                  <p class="text-xs text-orange-500">vs Riverside High 4:00 PM · 9 cleared · 2 blocked · 1 conflict</p>
+                </div>
+              </div>
+            </button>
+            <button onclick="quickLogin('coach.volleyball@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">🏐</span>
+                <div>
+                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Rivera — Volleyball</p>
+                  <p class="text-xs text-orange-500">vs Central Middle 5:30 PM · 8 cleared · 2 blocked</p>
+                </div>
+              </div>
+            </button>
+            <button onclick="quickLogin('coach.soccer@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">⚽</span>
+                <div>
+                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Thompson — Girls Soccer</p>
+                  <p class="text-xs text-orange-500">vs East Side Academy 3:30 PM · all 8 cleared ✓</p>
                 </div>
               </div>
             </button>
