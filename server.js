@@ -1164,7 +1164,7 @@ app.get('/api/parent/athlete-status', requireAuth, requireRole('parent'), async 
   try {
     const today = new Date().toISOString().split('T')[0];
     const r = await query(`
-      SELECT
+      SELECT DISTINCT ON (s.id, ge.id)
         s.id AS student_id,
         s.name AS student_name,
         s.transport_status,
@@ -1178,10 +1178,8 @@ app.get('/api/parent/athlete-status', requireAuth, requireRole('parent'), async 
         gde.blocked_reason,
         gde.conflict_flag,
         gde.last_checked_at,
-        -- Bus: latest scan today
         bs.scanned_at AS bus_scan_time,
         br.route_name AS bus_route,
-        -- Latest GPS ping
         (SELECT te.latitude || ',' || te.longitude
          FROM transportation_events te
          WHERE te.route_id = bs.route_id
@@ -1200,7 +1198,7 @@ app.get('/api/parent/athlete-status', requireAuth, requireRole('parent'), async 
       ) bs ON true
       LEFT JOIN bus_routes br ON br.id = bs.route_id
       WHERE ps.parent_id = $2
-      ORDER BY ge.game_time ASC
+      ORDER BY s.id, ge.id, ge.game_time ASC
     `, [today, req.session.userId]);
 
     res.json(r.rows.map(row => ({
