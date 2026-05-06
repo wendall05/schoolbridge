@@ -349,9 +349,12 @@ function renderShell() {
     ],
   };
 
+  const isPivotRole = S.user.role === 'athletic_director' || S.user.role === 'coach';
   const items = navItems[S.user.role] || [];
+  const navActiveClass   = isPivotRole ? 'text-orange-400' : 'text-blue-600';
+  const navInactiveClass = isPivotRole ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600';
   const navHtml = items.map(n => `
-    <button onclick="nav('${n.page}')" class="relative flex flex-col items-center gap-1 flex-1 py-2 ${S.page===n.page||S.page.startsWith(n.page+'-')?'text-blue-600':'text-slate-400 hover:text-slate-600'} transition-colors">
+    <button onclick="nav('${n.page}')" class="relative flex flex-col items-center gap-1 flex-1 py-2 ${S.page===n.page||S.page.startsWith(n.page+'-')?navActiveClass:navInactiveClass} transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="${n.icon}"/></svg>
       ${n.badge ? `<span class="absolute top-1 right-1/4 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center" style="font-size:10px">${n.badge}</span>` : ''}
       <span class="text-xs font-medium">${n.label}</span>
@@ -375,28 +378,36 @@ function renderShell() {
   const pageHtml = (pages[S.page] || (() => `<div class="p-6 text-slate-400">Page not found</div>`))();
 
   return `
-  <div class="min-h-screen flex flex-col" style="background:#f1f5f9">
-    <header class="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+  <div class="min-h-screen flex flex-col" style="background:${isPivotRole ? '#0f172a' : '#f1f5f9'}">
+    <header class="sticky top-0 z-40 ${isPivotRole ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border-b px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        ${S.history.length > 0 ? `<button onclick="goBack()" class="text-slate-400 hover:text-slate-700 transition-colors mr-1">
+        ${S.history.length > 0 ? `<button onclick="goBack()" class="${isPivotRole ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-700'} transition-colors mr-1">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>` : ''}
         <div class="flex items-center gap-2">
+          ${isPivotRole ? `
+          <div class="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+          </div>
+          <div>
+            <span class="font-bold text-white text-sm">Operation Pivot</span>
+            <span class="text-orange-400 text-xs block leading-none">Logistics Command</span>
+          </div>` : `
           <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
           </div>
-          <span class="font-semibold text-slate-800 text-sm">SchoolBridge</span>
+          <span class="font-semibold text-slate-800 text-sm">SchoolBridge</span>`}
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-xs text-slate-400">${esc(S.user.name)}</span>
-        <button onclick="doLogout()" class="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded">Sign out</button>
+        <span class="text-xs ${isPivotRole ? 'text-slate-400' : 'text-slate-400'}">${esc(S.user.name)}</span>
+        <button onclick="doLogout()" class="text-xs ${isPivotRole ? 'text-slate-500 hover:text-orange-400' : 'text-slate-400 hover:text-red-500'} transition-colors px-2 py-1 rounded">Sign out</button>
       </div>
     </header>
     <main class="flex-1 overflow-y-auto pb-20">
       <div class="max-w-2xl mx-auto px-4 py-6 fade-in">${pageHtml}</div>
     </main>
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex z-40">
+    <nav class="fixed bottom-0 left-0 right-0 ${isPivotRole ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border-t flex z-40">
       ${navHtml}
     </nav>
   </div>`;
@@ -405,7 +416,7 @@ function renderShell() {
 async function doLogout() {
   await POST('/auth/logout');
   if (_sse) { _sse.close(); _sse = null; }
-  S.user = null; S.page = 'login'; S.history = []; S.feed = null;
+  S.user = null; S.page = 'login'; S.history = []; S.feed = null; S.athleteStatus = undefined; S._feedLoaded = false; S._athleteStatusLoading = false;
   render();
 }
 
@@ -422,8 +433,17 @@ function renderFeed() {
   }
   if (!S.feed.length) return `<div class="text-center py-16 text-slate-400">No students linked to your account.</div>`;
 
+  // Lazy-load athlete game-day status (parent-safe endpoint)
+  if (S.athleteStatus === undefined && !S._athleteStatusLoading) {
+    S._athleteStatusLoading = true;
+    GET('/api/parent/athlete-status')
+      .then(data => { S.athleteStatus = data; S._athleteStatusLoading = false; render(); })
+      .catch(() => { S.athleteStatus = []; S._athleteStatusLoading = false; });
+  }
+
   return S.feed.map(child => {
     const { student, alerts, attendance, grades, upcoming, behavior, shadow, bus } = child;
+    const athleteGames = (S.athleteStatus || []).filter(a => a.student_id === student.id);
     const urgentAlerts = alerts.filter(a => a.priority === 'critical' || a.priority === 'high');
     const infoAlerts   = alerts.filter(a => a.priority === 'low');
     const presentDays  = attendance.filter(a => a.status === 'present').length;
@@ -471,6 +491,44 @@ function renderFeed() {
           </div>
         </div>
       </div>` : ''}
+
+      ${athleteGames.map(g => {
+        const sport = g.sport || '';
+        const SPORT_EMOJI = {football:'🏈',volleyball:'🏐',soccer:'⚽',basketball:'🏀',baseball:'⚾',softball:'🥎',track:'🏃',cross_country:'🏃',swimming:'🏊',tennis:'🎾',golf:'⛳',wrestling:'🤼',lacrosse:'🥍',hockey:'🏒'};
+        const emoji = SPORT_EMOJI[sport] || '🏅';
+        const isCleared = g.is_cleared;
+        const onBus = !!g.bus_scan_time;
+        const gameTime = g.game_time ? g.game_time.slice(0,5) : '';
+        const location = g.is_home ? 'Home' : 'Away';
+        if (isCleared === null || isCleared === undefined) return `
+        <div class="mb-4 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">${emoji}</span>
+            <div>
+              <p class="font-semibold text-slate-700 text-sm">${esc(g.team_name)} · vs ${esc(g.opponent)}</p>
+              <p class="text-xs text-slate-400">${gameTime} · ${location} · Eligibility checking…</p>
+            </div>
+          </div>
+        </div>`;
+        return `
+        <div class="mb-4 rounded-2xl ${isCleared ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'} border p-4">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">${emoji}</span>
+              <div>
+                <p class="font-semibold text-slate-800 text-sm">${esc(g.team_name)}</p>
+                <p class="text-xs text-slate-500">vs ${esc(g.opponent)} · ${gameTime} · ${location}</p>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${isCleared ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}">
+                ${isCleared ? '✓ Cleared for Play' : '✗ Attendance Issue'}
+              </span>
+              ${onBus ? `<p class="text-xs text-orange-600 font-medium mt-1">🚌 On team bus</p>` : ''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
 
       ${urgentAlerts.filter(a=>a.priority!=='critical').map(a => {
         const cfg = priorityConfig[a.priority] || priorityConfig.low;
