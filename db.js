@@ -397,6 +397,9 @@ async function initDb() {
     `ALTER TABLE behavior_events ADD COLUMN IF NOT EXISTS section_id INT REFERENCES sections(id)`,
     // alerts: new columns
     `ALTER TABLE alerts ADD COLUMN IF NOT EXISTS sms_sent BOOLEAN DEFAULT FALSE`,
+    // data_audit_log: new columns
+    `ALTER TABLE data_audit_log ADD COLUMN IF NOT EXISTS ip_address TEXT`,
+    `ALTER TABLE data_audit_log ADD COLUMN IF NOT EXISTS tier INT DEFAULT 1`,
     // users: new columns
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS district_admin BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS iep_access BOOLEAN DEFAULT FALSE`,
