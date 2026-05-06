@@ -1019,6 +1019,19 @@ cron.schedule('*/5 7-15 * * 1-5', async () => {
   } catch (e) { console.error('[cron] LP cron error:', e.message); }
 });
 
+// Refresh sandbox demo bus data daily at midnight so LP demo stays current
+cron.schedule('1 0 * * *', async () => {
+  if (process.env.LOAD_SANDBOX !== 'true') return;
+  try {
+    const schools = await query("SELECT id FROM schools WHERE clever_id='sandbox_school_1'");
+    for (const s of schools.rows) {
+      await patchSandboxBusData(s.id).catch(e =>
+        console.error('[cron] Demo bus refresh failed:', e.message)
+      );
+    }
+  } catch (e) { console.error('[cron] Demo bus cron error:', e.message); }
+});
+
 // Data retention enforcement — runs nightly at 2am
 cron.schedule('0 2 * * *', async () => {
   console.log('[cron] Running data retention enforcement...');
@@ -1028,34 +1041,51 @@ cron.schedule('0 2 * * *', async () => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 async function patchSandboxBusData(schoolId) {
-  // Idempotent — only adds bus data if route doesn't exist yet
-  const existing = await query(`SELECT id FROM bus_routes WHERE school_id=$1 LIMIT 1`, [schoolId]);
-  if (existing.rows.length > 0) return;
+  // Ensure Marcus has a bus route, stop, and a board scan stamped to TODAY
+  // Safe to call on every startup — upserts rather than skips
 
   const marcusR = await query(`SELECT id FROM students WHERE name='Marcus Johnson' AND school_id=$1`, [schoolId]);
   if (!marcusR.rows.length) return;
   const marcusId = marcusR.rows[0].id;
 
+  // Create route if missing
   const routeR = await query(`
     INSERT INTO bus_routes (school_id, route_name, am_arrival_expected, pm_departure_expected)
-    VALUES ($1, 'Route 12 — East Side', '07:45', '15:30') RETURNING id
+    VALUES ($1, 'Route 12 — East Side', '07:45', '15:30')
+    ON CONFLICT DO NOTHING RETURNING id
   `, [schoolId]);
-  const routeId = routeR.rows[0].id;
+  const routeId = routeR.rows.length
+    ? routeR.rows[0].id
+    : (await query(`SELECT id FROM bus_routes WHERE school_id=$1 LIMIT 1`, [schoolId])).rows[0].id;
 
+  // Create stop if missing
   const stopR = await query(`
     INSERT INTO bus_stops (route_id, stop_name, stop_order, latitude, longitude)
-    VALUES ($1, 'Cedar St & Salina St', 3, 43.0481, -76.1474) RETURNING id
+    VALUES ($1, 'Cedar St & Salina St', 3, 43.0481, -76.1474)
+    ON CONFLICT DO NOTHING RETURNING id
   `, [routeId]);
-  const stopId = stopR.rows[0].id;
+  const stopId = stopR.rows.length
+    ? stopR.rows[0].id
+    : (await query(`SELECT id FROM bus_stops WHERE route_id=$1 LIMIT 1`, [routeId])).rows[0].id;
 
+  const today = new Date().toISOString().split('T')[0];
+
+  // Delete any stale Marcus bus scans not from today, then insert today's scan
+  await query(`DELETE FROM bus_scans WHERE student_id=$1 AND scanned_at::date != $2`, [marcusId, today]);
   await query(`
     INSERT INTO bus_scans (student_id, route_id, stop_id, scan_type, scanned_at)
-    VALUES ($1, $2, $3, 'board', NOW() - INTERVAL '45 minutes')
+    VALUES ($1, $2, $3, 'board', $4::date + INTERVAL '7 hours 30 minutes')
     ON CONFLICT DO NOTHING
-  `, [marcusId, routeId, stopId]);
+  `, [marcusId, routeId, stopId, today]);
+
+  // Ensure Marcus has no present attendance today so LP fires
+  await query(`
+    UPDATE attendance SET status='absent'
+    WHERE student_id=$1 AND date=$2 AND status='present'
+  `, [marcusId, today]);
 
   await query(`UPDATE students SET transport_status='on_bus' WHERE id=$1`, [marcusId]);
-  console.log('[sandbox] Bus data patched for Marcus Johnson');
+  console.log('[sandbox] Bus data refreshed for Marcus Johnson —', today);
 }
 
 async function start() {
