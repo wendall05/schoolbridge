@@ -375,6 +375,57 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_students_school ON students(school_id);
     CREATE INDEX IF NOT EXISTS idx_users_school ON users(school_id);
   `);
+
+  // ── Schema migrations (ADD COLUMN IF NOT EXISTS for existing prod tables) ──
+  const migrations = [
+    // attendance: new columns added in Phase 1
+    `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS tier INT DEFAULT 1`,
+    `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS justification TEXT`,
+    `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS justification_submitted_at TIMESTAMPTZ`,
+    // attendance: update CHECK constraint to include logistically_present
+    `ALTER TABLE attendance DROP CONSTRAINT IF EXISTS attendance_status_check`,
+    `ALTER TABLE attendance ADD CONSTRAINT attendance_status_check CHECK (status IN ('present','absent','tardy','excused','logistically_present'))`,
+    // grades: new columns
+    `ALTER TABLE grades ADD COLUMN IF NOT EXISTS tier INT DEFAULT 1`,
+    `ALTER TABLE grades ADD COLUMN IF NOT EXISTS missing BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE grades ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ`,
+    `ALTER TABLE grades ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'oneroster'`,
+    `ALTER TABLE grades ADD COLUMN IF NOT EXISTS source_id TEXT`,
+    // behavior_events: new columns
+    `ALTER TABLE behavior_events ADD COLUMN IF NOT EXISTS tier INT DEFAULT 2`,
+    `ALTER TABLE behavior_events ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'direct'`,
+    `ALTER TABLE behavior_events ADD COLUMN IF NOT EXISTS section_id INT REFERENCES sections(id)`,
+    // alerts: new columns
+    `ALTER TABLE alerts ADD COLUMN IF NOT EXISTS sms_sent BOOLEAN DEFAULT FALSE`,
+    // users: new columns
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS district_admin BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS iep_access BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_tier INT DEFAULT 3`,
+    // students: new columns
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS has_iep BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS has_504 BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS accommodation_notes TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS transport_status TEXT`,
+    // schools: new columns
+    `ALTER TABLE schools ADD COLUMN IF NOT EXISTS district_id INT REFERENCES districts(id) ON DELETE CASCADE`,
+    `ALTER TABLE schools ADD COLUMN IF NOT EXISTS oneroster_base_url TEXT`,
+    // sections: LMS course ID
+    `ALTER TABLE sections ADD COLUMN IF NOT EXISTS lms_course_id TEXT`,
+    // users role: update check to include district_admin
+    `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`,
+    `ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('parent','teacher','admin','district_admin'))`,
+  ];
+
+  for (const sql of migrations) {
+    try { await pool.query(sql); }
+    catch (e) {
+      // Constraint already exists or column conflict — non-fatal
+      if (!e.message.includes('already exists')) {
+        console.error('[migration] Error:', sql.slice(0, 80), '—', e.message);
+      }
+    }
+  }
+
   console.log('Database initialized');
 }
 
