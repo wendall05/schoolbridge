@@ -1192,7 +1192,12 @@ app.get('/api/parent/athlete-status', requireAuth, requireRole('parent'), async 
       JOIN sports_teams st ON st.id = ap.team_id
       JOIN game_events ge ON ge.team_id = st.id AND ge.game_date = $1 AND ge.status != 'cancelled'
       LEFT JOIN game_day_eligibility gde ON gde.game_event_id = ge.id AND gde.student_id = s.id
-      LEFT JOIN bus_scans bs ON bs.student_id = s.id AND bs.scanned_at::date = $1 AND bs.scan_type = 'board'
+      LEFT JOIN LATERAL (
+        SELECT bs2.scanned_at, bs2.route_id
+        FROM bus_scans bs2
+        WHERE bs2.student_id = s.id AND bs2.scanned_at::date = $1 AND bs2.scan_type = 'board'
+        ORDER BY bs2.scanned_at DESC LIMIT 1
+      ) bs ON true
       LEFT JOIN bus_routes br ON br.id = bs.route_id
       WHERE ps.parent_id = $2
       ORDER BY ge.game_time ASC
