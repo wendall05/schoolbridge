@@ -274,7 +274,7 @@ function renderLogin() {
 
       </div>
 
-      <p class="text-center text-blue-300 text-xs mt-4">Lincoln Middle School · Syracuse City SD · Demo</p>
+      <p class="text-center text-blue-300 text-xs mt-4">Demo</p>
     </div>
   </div>`;
 }
@@ -418,7 +418,7 @@ function renderFeed() {
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-xl font-bold text-slate-800">${esc(student.name)}</h2>
-          <p class="text-sm text-slate-400">${esc(student.grade)} · Lincoln Middle School</p>
+          <p class="text-sm text-slate-400">${esc(student.grade)} · ${esc(S.user.school_name || 'SchoolBridge')}</p>
         </div>
         <div class="text-right">
           <div class="text-2xl font-bold ${attPct >= 90 ? 'text-emerald-600' : attPct >= 80 ? 'text-amber-600' : 'text-red-600'}">${attPct}%</div>
@@ -1074,8 +1074,8 @@ function renderAdmin() {
   <div>
     <div class="flex items-center justify-between mb-4">
       <div>
-        <h2 class="text-xl font-bold text-slate-800">Lincoln Middle School</h2>
-        <p class="text-sm text-slate-400">Syracuse City School District</p>
+        <h2 class="text-xl font-bold text-slate-800">${esc(S.user.school_name || 'SchoolBridge')}</h2>
+        <p class="text-sm text-slate-400">${esc(S.user.district_name || '')}</p>
       </div>
       ${lastSync ? `<div class="text-right">
         <div class="flex items-center gap-1 justify-end">
@@ -1248,7 +1248,7 @@ function renderStudentDetail() {
     <div class="flex items-center justify-between mb-4">
       <div>
         <h2 class="text-xl font-bold text-slate-800">${esc(student.name)}</h2>
-        <p class="text-sm text-slate-400">${esc(student.grade)} · Lincoln Middle School</p>
+        <p class="text-sm text-slate-400">${esc(student.grade)} · ${esc(S.user.school_name || 'SchoolBridge')}</p>
       </div>
       <span class="text-sm font-bold px-3 py-1.5 rounded-full border ${isLP ? 'bg-orange-100 text-orange-700 border-orange-300' : risk.cls}">${isLP ? '⚠️ ON BUS' : risk.label}</span>
     </div>

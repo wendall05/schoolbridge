@@ -98,7 +98,9 @@ app.post('/auth/login', authLimiter, async (req, res) => {
     req.session.consentTier = user.consent_tier;
     const name = decrypt(user.name);
     const email_out = decrypt(user.email);
-    res.json({ id: user.id, name, email: email_out, role: user.role, consent_tier: user.consent_tier });
+    const schoolR = await query('SELECT name, district FROM schools WHERE id=$1', [user.school_id]);
+    const school = schoolR.rows[0] || {};
+    res.json({ id: user.id, name, email: email_out, role: user.role, consent_tier: user.consent_tier, school_name: school.name || null, district_name: school.district || null });
   } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
@@ -110,7 +112,9 @@ app.get('/auth/me', requireAuth, async (req, res) => {
   const r = await query('SELECT id,name,email,role,consent_tier,school_id FROM users WHERE id=$1', [req.session.userId]);
   const user = r.rows[0];
   if (!user) return res.status(404).json({ error: 'Not found' });
-  res.json({ ...user, name: decrypt(user.name), email: decrypt(user.email) });
+  const schoolR = await query('SELECT name, district FROM schools WHERE id=$1', [user.school_id]);
+  const school = schoolR.rows[0] || {};
+  res.json({ ...user, name: decrypt(user.name), email: decrypt(user.email), school_name: school.name || null, district_name: school.district || null });
 });
 
 // ── Parent: Feed ──────────────────────────────────────────────────────────────
