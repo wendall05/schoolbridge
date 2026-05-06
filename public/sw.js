@@ -4,7 +4,7 @@
  * Offline fallback: serves cached feed data when network unavailable
  */
 
-const CACHE_NAME = 'schoolbridge-v5';
+const CACHE_NAME = 'schoolbridge-v6';
 // Only cache third-party CDN assets — never cache app files (they update constantly)
 const STATIC_ASSETS = [
   'https://cdn.tailwindcss.com/3.4.17',
