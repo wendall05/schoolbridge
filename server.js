@@ -16,6 +16,7 @@ const { runFullSync } = require('./oneroster');
 const { handleOidcLogin, handleLaunch, handleDeepLink, registerPlatform } = require('./lti');
 const { cleverAuthUrl, cleverCallback, classLinkAuthUrl, classLinkCallback, samlAuthUrl, samlCallback } = require('./auth-sso');
 const { getChronicAbsenteeismReport, getDistrictAbsenteeismReport, getWeeklyReport } = require('./reports');
+const { checkGameDayEligibility, ingestPartialAttendanceEvent, getTeamReadiness, getGameRoster, resolveConflict, runEligibilityPulse } = require('./eligibility');
 const { runEdFiSync } = require('./edfi');
 const { syncCanvasGrades, syncGoogleClassroomGrades } = require('./lms-sync');
 
@@ -977,6 +978,167 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// ── Operation Pivot: Middleware auth helpers ───────────────────────────────────
+function requirePivotRole(...roles) {
+  return (req, res, next) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!roles.includes(req.session.role)) return res.status(403).json({ error: 'Forbidden' });
+    next();
+  };
+}
+
+// ── Operation Pivot: AD Readiness Board ───────────────────────────────────────
+app.get('/api/pivot/readiness', requireAuth, requirePivotRole('admin','athletic_director','coach'), async (req, res) => {
+  try {
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    const teams = await getTeamReadiness(req.session.schoolId, date);
+    res.json({ date, teams });
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// Game roster with full eligibility status
+app.get('/api/pivot/game/:gameEventId/roster', requireAuth, requirePivotRole('admin','athletic_director','coach'), async (req, res) => {
+  try {
+    const roster = await getGameRoster(parseInt(req.params.gameEventId), req.session.schoolId);
+    res.json(roster);
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// Manual eligibility check trigger
+app.post('/api/pivot/eligibility/check', requireAuth, requirePivotRole('admin','athletic_director'), async (req, res) => {
+  try {
+    const { game_event_id } = req.body;
+    if (!game_event_id) return res.status(400).json({ error: 'game_event_id required' });
+    const result = await checkGameDayEligibility(game_event_id, req.session.schoolId, 'manual');
+    broadcast(req.session.schoolId, { type: 'eligibility_updated', game_event_id, summary: result });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// Ingest partial attendance event from SIS webhook
+app.post('/api/pivot/attendance/partial', requireAuth, async (req, res) => {
+  try {
+    const result = await ingestPartialAttendanceEvent(req.body);
+    if (result.re_evaluated?.length) {
+      broadcast(req.session.schoolId, { type: 'eligibility_updated', re_evaluated: result.re_evaluated });
+    }
+    res.json(result);
+  } catch (e) { res.status(400).json({ error: safeError(e, req.path) }); }
+});
+
+// Conflict resolution: AD manually overrides SIS/GPS conflict
+app.post('/api/pivot/conflict/resolve', requireAuth, requirePivotRole('admin','athletic_director'), async (req, res) => {
+  try {
+    const { eligibility_id, resolution } = req.body;
+    if (!eligibility_id || !resolution) return res.status(400).json({ error: 'eligibility_id and resolution required' });
+    if (!['override_cleared','override_blocked'].includes(resolution)) {
+      return res.status(400).json({ error: 'resolution must be override_cleared or override_blocked' });
+    }
+    const result = await resolveConflict(eligibility_id, resolution, req.session.userId);
+    broadcast(req.session.schoolId, { type: 'eligibility_updated', ...result });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// Daily roster export (JSON — AD can pipe to CSV)
+app.get('/api/pivot/roster-export/:gameEventId', requireAuth, requirePivotRole('admin','athletic_director'), async (req, res) => {
+  try {
+    const roster = await getGameRoster(parseInt(req.params.gameEventId), req.session.schoolId);
+    const gameR  = await query('SELECT opponent, game_date, game_time FROM game_events WHERE id=$1', [req.params.gameEventId]);
+    const game   = gameR.rows[0] || {};
+    const rows   = roster.map(p => ({
+      jersey:          p.jersey_number || '',
+      name:            p.student_name,
+      grade:           p.grade,
+      position:        p.position || '',
+      cleared:         p.is_cleared ? 'YES' : 'NO',
+      periods:         `${p.periods_attended ?? '?'}/${p.periods_total ?? '?'}`,
+      conflict:        p.conflict_flag ? 'YES' : '',
+      accommodation:   p.has_iep ? 'IEP' : p.has_504 ? '504' : '',
+      blocked_reason:  p.blocked_reason || '',
+    }));
+    res.setHeader('Content-Disposition', `attachment; filename="roster-${req.params.gameEventId}-${game.game_date||'today'}.json"`);
+    res.json({ game: { opponent: game.opponent, date: game.game_date, time: game.game_time }, roster: rows });
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// Coach notifications (unread red flags)
+app.get('/api/pivot/notifications', requireAuth, requirePivotRole('admin','athletic_director','coach'), async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT cn.*, s.name AS student_name
+      FROM coach_notifications cn
+      JOIN students s ON s.id = cn.student_id
+      WHERE cn.coach_id = $1 AND cn.is_read = false
+      ORDER BY cn.created_at DESC LIMIT 50
+    `, [req.session.userId]);
+    res.json(r.rows.map(n => ({ ...n, student_name: decrypt(n.student_name) })));
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+app.post('/api/pivot/notifications/read', requireAuth, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids array required' });
+    await query(`UPDATE coach_notifications SET is_read=true, read_at=NOW() WHERE id = ANY($1) AND coach_id=$2`, [ids, req.session.userId]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// Team management
+app.get('/api/pivot/teams', requireAuth, requirePivotRole('admin','athletic_director','coach'), async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT st.*, u.name AS coach_name,
+             COUNT(ap.id) FILTER (WHERE ap.is_active) AS athlete_count
+      FROM sports_teams st
+      LEFT JOIN users u ON u.id = st.coach_id
+      LEFT JOIN athlete_profiles ap ON ap.team_id = st.id
+      WHERE st.school_id = $1
+      GROUP BY st.id, u.name
+      ORDER BY st.sport, st.name
+    `, [req.session.schoolId]);
+    res.json(r.rows.map(t => ({ ...t, coach_name: t.coach_name ? decrypt(t.coach_name) : null })));
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+// Asset management
+app.get('/api/pivot/assets', requireAuth, requirePivotRole('admin','athletic_director','coach'), async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT al.*, s.name AS student_name FROM asset_ledger al
+      LEFT JOIN students s ON s.id = al.student_id
+      WHERE al.school_id = $1
+      ORDER BY al.checked_out_at DESC
+    `, [req.session.schoolId]);
+    res.json(r.rows.map(a => ({ ...a, student_name: a.student_name ? decrypt(a.student_name) : null })));
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+app.post('/api/pivot/assets/checkout', requireAuth, requirePivotRole('admin','athletic_director','coach'), async (req, res) => {
+  try {
+    const { student_id, team_id, asset_type, asset_tag, description, season } = req.body;
+    if (!asset_type || !asset_tag) return res.status(400).json({ error: 'asset_type and asset_tag required' });
+    const r = await query(`
+      INSERT INTO asset_ledger (school_id, team_id, student_id, asset_type, asset_tag, description, season, checked_out_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id
+    `, [req.session.schoolId, team_id||null, student_id||null, asset_type, asset_tag, description||null, season||null, req.session.userId]);
+    res.json({ ok: true, id: r.rows[0].id });
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
+app.post('/api/pivot/assets/checkin', requireAuth, requirePivotRole('admin','athletic_director','coach'), async (req, res) => {
+  try {
+    const { asset_tag } = req.body;
+    if (!asset_tag) return res.status(400).json({ error: 'asset_tag required' });
+    await query(`
+      UPDATE asset_ledger SET checked_in_at=NOW(), checked_in_by=$1, graduation_hold=false
+      WHERE asset_tag=$2 AND school_id=$3 AND checked_in_at IS NULL
+    `, [req.session.userId, asset_tag, req.session.schoolId]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
 // ── Catch-all ─────────────────────────────────────────────────────────────────
 app.use((req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
@@ -1052,6 +1214,20 @@ cron.schedule('1 0 * * *', async () => {
       );
     }
   } catch (e) { console.error('[cron] Demo bus cron error:', e.message); }
+});
+
+// Game Day Eligibility pulse — 9:30 AM (morning check, must clear before first period ends)
+cron.schedule('30 9 * * 1-5', async () => {
+  console.log('[eligibility] 9:30 AM pulse running...');
+  try { await runEligibilityPulse('cron_930'); }
+  catch (e) { console.error('[eligibility] 9:30 AM pulse error:', e.message); }
+});
+
+// Game Day Eligibility pulse — 1:30 PM (afternoon confirmation, final before bus departs)
+cron.schedule('30 13 * * 1-5', async () => {
+  console.log('[eligibility] 1:30 PM pulse running...');
+  try { await runEligibilityPulse('cron_130'); }
+  catch (e) { console.error('[eligibility] 1:30 PM pulse error:', e.message); }
 });
 
 // Data retention enforcement — runs nightly at 2am

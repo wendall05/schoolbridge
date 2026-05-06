@@ -292,7 +292,7 @@ async function doLogin(e) {
     });
     S.user = user;
     connectSSE();
-    nav(user.role === 'parent' ? 'feed' : user.role === 'teacher' ? 'attendance' : 'admin');
+    nav(landingPage(user.role));
   } catch (e) {
     err.textContent = e.message;
     err.classList.remove('hidden');
@@ -327,6 +327,16 @@ function renderShell() {
       { page:'admin-reports',  label:'Reports',     icon:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
       { page:'messages',       label:t('messages'), icon:msgIcon, badge:unreadMsgs },
     ],
+    athletic_director: [
+      { page:'pivot',       label:'Command',  icon:'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2' },
+      { page:'pivot-roster',label:'Roster',   icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+      { page:'messages',    label:'Messages', icon:msgIcon, badge:unreadMsgs },
+    ],
+    coach: [
+      { page:'pivot',       label:'Game Day', icon:'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2' },
+      { page:'pivot-roster',label:'My Team',  icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+      { page:'messages',    label:'Messages', icon:msgIcon, badge:unreadMsgs },
+    ],
   };
 
   const items = navItems[S.user.role] || [];
@@ -348,6 +358,8 @@ function renderShell() {
     'admin-students': renderAdminStudents,
     'admin-reports': renderAdminReports,
     'student-detail': renderStudentDetail,
+    pivot: renderPivot,
+    'pivot-roster': renderPivotRoster,
   };
 
   const pageHtml = (pages[S.page] || (() => `<div class="p-6 text-slate-400">Page not found</div>`))();
@@ -1375,6 +1387,252 @@ function renderStudentDetail() {
   </div>`;
 }
 
+// ── Role → landing page ───────────────────────────────────────────────────────
+function landingPage(role) {
+  const map = { parent:'feed', teacher:'attendance', admin:'admin', district_admin:'admin', athletic_director:'pivot', coach:'pivot' };
+  return map[role] || 'feed';
+}
+
+// ── Operation Pivot: AD Command Center ───────────────────────────────────────
+const SPORT_ICONS = { football:'🏈', volleyball:'🏐', soccer:'⚽', basketball:'🏀', baseball:'⚾', softball:'🥎', track:'🏃', swimming:'🏊', wrestling:'🤼', lacrosse:'🥍', tennis:'🎾', cross_country:'🏃' };
+
+function renderPivot() {
+  if (S.pivotReadiness) {
+    // fall through
+  } else if (!S._pivotLoaded) {
+    S._pivotLoaded = true;
+    GET('/api/pivot/readiness').then(data => { S.pivotReadiness = data; render(); }).catch(e => { console.error('Pivot readiness error:', e); S._pivotLoaded = false; });
+    return spinner();
+  } else {
+    return spinner();
+  }
+
+  const { date, teams } = S.pivotReadiness;
+  const isAD = S.user.role === 'athletic_director' || S.user.role === 'admin';
+
+  if (!teams || !teams.length) {
+    return `
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">Operation Pivot</h2>
+          <p class="text-xs text-slate-400">Game Day Command Center · ${date}</p>
+        </div>
+        <button onclick="S.pivotReadiness=null;S._pivotLoaded=false;render()" class="text-xs text-blue-600 font-medium">Refresh</button>
+      </div>
+      <div class="bg-emerald-50 rounded-2xl border border-emerald-100 p-8 text-center">
+        <p class="text-3xl mb-2">✅</p>
+        <p class="font-semibold text-emerald-700 text-lg">No games scheduled today</p>
+        <p class="text-sm text-emerald-500 mt-1">Check back on game days</p>
+      </div>
+    </div>`;
+  }
+
+  const totalCleared  = teams.reduce((s, t) => s + t.cleared, 0);
+  const totalAthletes = teams.reduce((s, t) => s + t.total_athletes, 0);
+  const totalConflicts = teams.reduce((s, t) => s + t.conflicts, 0);
+  const overallPct = totalAthletes > 0 ? Math.round(totalCleared / totalAthletes * 100) : 0;
+
+  return `
+  <div>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800">Operation Pivot</h2>
+        <p class="text-xs text-slate-400">Game Day Command · ${date}</p>
+      </div>
+      <button onclick="runEligibilityPulse()" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold">⚡ Recheck</button>
+    </div>
+
+    <!-- Overall status banner -->
+    <div class="rounded-2xl p-4 mb-5 ${overallPct === 100 ? 'bg-emerald-500' : overallPct >= 80 ? 'bg-amber-500' : 'bg-red-500'} text-white shadow-lg">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-semibold opacity-80">${teams.length} team${teams.length !== 1 ? 's' : ''} competing today</p>
+          <p class="text-4xl font-black">${overallPct}% <span class="text-xl font-semibold opacity-80">cleared</span></p>
+        </div>
+        <div class="text-right">
+          <p class="text-2xl font-black">${totalCleared}<span class="text-base font-normal opacity-80">/${totalAthletes}</span></p>
+          <p class="text-xs opacity-80">athletes cleared</p>
+          ${totalConflicts > 0 ? `<p class="text-xs font-bold mt-1 bg-white bg-opacity-20 rounded px-2 py-0.5">${totalConflicts} conflict${totalConflicts !== 1 ? 's' : ''} need review</p>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-team cards -->
+    ${teams.map(team => {
+      const pct = team.cleared_pct;
+      const icon = SPORT_ICONS[team.sport] || '🏆';
+      const statusColor = pct === 100 ? 'emerald' : pct >= 80 ? 'amber' : 'red';
+      const barWidth = `${pct}%`;
+
+      return `
+      <div onclick="nav('pivot-roster', {pivotGameId: ${team.game_event_id}, pivotTeamName: '${esc(team.team_name)}'})"
+           class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-3 cursor-pointer hover:border-blue-200 hover:shadow-md transition-all">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">${icon}</span>
+            <div>
+              <p class="font-bold text-slate-800">${esc(team.team_name)}</p>
+              <p class="text-xs text-slate-400">${esc(team.opponent ? `vs ${team.opponent}` : '')} ${team.game_time ? '· ' + team.game_time.slice(0,5) : ''} ${team.is_home ? '· Home' : '· Away'}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="text-2xl font-black text-${statusColor}-600">${pct}%</p>
+            <p class="text-xs text-slate-400">${team.cleared}/${team.total_athletes} cleared</p>
+          </div>
+        </div>
+
+        <!-- Status bar -->
+        <div class="w-full bg-slate-100 rounded-full h-3 mb-2 overflow-hidden">
+          <div class="h-3 rounded-full transition-all duration-500 ${pct === 100 ? 'bg-emerald-500' : pct >= 80 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${barWidth}"></div>
+        </div>
+
+        <div class="flex items-center gap-3 text-xs">
+          ${team.blocked > 0 ? `<span class="text-red-600 font-bold">⛔ ${team.blocked} blocked</span>` : ''}
+          ${team.conflicts > 0 ? `<span class="text-orange-600 font-bold">⚠️ ${team.conflicts} conflict${team.conflicts !== 1 ? 's' : ''}</span>` : ''}
+          ${team.unchecked > 0 ? `<span class="text-slate-400">${team.unchecked} not yet checked</span>` : ''}
+          ${team.blocked === 0 && team.conflicts === 0 ? `<span class="text-emerald-600 font-semibold">✓ All clear</span>` : ''}
+          <span class="text-slate-300 ml-auto">Tap to view roster →</span>
+        </div>
+      </div>`;
+    }).join('')}
+
+    ${isAD ? `
+    <div class="mt-4 bg-slate-50 rounded-2xl border border-slate-200 p-4">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">AD Actions</p>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="nav('pivot-roster', {pivotGameId: ${teams[0]?.game_event_id}})" class="text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-medium hover:border-blue-300">📋 Full Roster</button>
+        <button onclick="exportRoster(${teams[0]?.game_event_id})" class="text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-medium hover:border-blue-300">⬇️ Export</button>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+async function runEligibilityPulse() {
+  const btn = document.querySelector('[onclick="runEligibilityPulse()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Checking...'; }
+  try {
+    const game = S.pivotReadiness?.teams?.[0];
+    if (!game) { showToast('No game selected', 'error'); return; }
+    await POST('/api/pivot/eligibility/check', { game_event_id: game.game_event_id });
+    S.pivotReadiness = null; S._pivotLoaded = false;
+    showToast('Eligibility re-checked', 'success');
+    render();
+  } catch (e) { showToast(e.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = '⚡ Recheck'; } }
+}
+
+async function exportRoster(gameEventId) {
+  if (!gameEventId) return showToast('No game to export', 'error');
+  window.open(`/api/pivot/roster-export/${gameEventId}`, '_blank');
+}
+
+async function resolveConflict(eligibilityId, resolution) {
+  try {
+    await POST('/api/pivot/conflict/resolve', { eligibility_id: eligibilityId, resolution });
+    S.pivotRoster = null; S._rosterLoaded = false;
+    showToast(resolution === 'override_cleared' ? 'Player cleared ✓' : 'Player blocked', resolution === 'override_cleared' ? 'success' : 'error');
+    render();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Operation Pivot: Game Day Roster (per-team) ───────────────────────────────
+function renderPivotRoster() {
+  const gameId = S.params?.pivotGameId;
+  const teamName = S.params?.pivotTeamName || 'Team';
+
+  if (!gameId) return `<div class="p-6 text-slate-400">No game selected. Go back to Command.</div>`;
+
+  if (S.pivotRoster && S.pivotRosterGameId === gameId) {
+    // fall through
+  } else if (!S._rosterLoaded) {
+    S._rosterLoaded = true;
+    S.pivotRosterGameId = gameId;
+    GET(`/api/pivot/game/${gameId}/roster`).then(data => { S.pivotRoster = data; render(); }).catch(e => { console.error('Roster error:', e); S._rosterLoaded = false; });
+    return spinner();
+  } else {
+    return spinner();
+  }
+
+  const roster = S.pivotRoster || [];
+  const cleared  = roster.filter(p => p.is_cleared === true);
+  const blocked  = roster.filter(p => p.is_cleared === false && !p.conflict_flag);
+  const conflicts = roster.filter(p => p.conflict_flag && !p.conflict_resolved);
+  const unchecked = roster.filter(p => p.is_cleared === null);
+  const isAD = S.user.role === 'athletic_director' || S.user.role === 'admin';
+
+  function playerCard(p) {
+    const isConflict = p.conflict_flag && !p.conflict_resolved;
+    const cardBorder = p.is_cleared ? 'border-emerald-100' : isConflict ? 'border-orange-200' : 'border-red-100';
+    const badge = p.is_cleared
+      ? `<span class="text-xs font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ CLEARED</span>`
+      : isConflict
+      ? `<span class="text-xs font-black px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 animate-pulse">⚠️ CONFLICT</span>`
+      : `<span class="text-xs font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700">⛔ BLOCKED</span>`;
+
+    return `
+    <div class="bg-white rounded-2xl border ${cardBorder} shadow-sm p-4 mb-3">
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full ${p.is_cleared ? 'bg-emerald-100' : isConflict ? 'bg-orange-100' : 'bg-red-100'} flex items-center justify-center">
+            <span class="text-sm font-black ${p.is_cleared ? 'text-emerald-700' : isConflict ? 'text-orange-700' : 'text-red-700'}">#${esc(p.jersey_number||'?')}</span>
+          </div>
+          <div>
+            <p class="font-bold text-slate-800">${esc(p.student_name)} ${p.has_iep ? '<span class="text-xs text-blue-500 font-normal">IEP</span>' : p.has_504 ? '<span class="text-xs text-purple-500 font-normal">504</span>' : ''}</p>
+            <p class="text-xs text-slate-400">${esc(p.position||'—')} · Grade ${esc(p.grade||'?')}</p>
+          </div>
+        </div>
+        ${badge}
+      </div>
+
+      ${p.is_cleared !== null ? `
+      <div class="flex items-center gap-2 mb-2">
+        <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+          <div class="h-2 rounded-full ${p.is_cleared ? 'bg-emerald-500' : 'bg-red-400'}" style="width:${p.periods_total ? Math.round((p.periods_attended||0)/p.periods_total*100) : 0}%"></div>
+        </div>
+        <span class="text-xs font-bold text-slate-600">${p.periods_attended??'?'}/${p.periods_total??'?'} periods</span>
+        <span class="text-xs text-slate-400">(need ${p.periods_required??'?'})</span>
+      </div>` : ''}
+
+      ${p.blocked_reason && !p.is_cleared ? `<p class="text-xs text-red-600 mb-2">${esc(p.blocked_reason)}</p>` : ''}
+
+      ${isConflict ? `
+      <div class="bg-orange-50 rounded-xl p-3 mb-2">
+        <p class="text-xs font-bold text-orange-800 mb-1">⚠️ Conflict: ${p.conflict_type === 'sis_absent_gps_present' ? 'SIS shows absent — GPS shows on team bus' : esc(p.conflict_type||'')}</p>
+        <p class="text-xs text-orange-600 mb-2">System auto-cleared for ADA Revenue protection. AD can override.</p>
+        ${isAD ? `
+        <div class="flex gap-2">
+          <button onclick="resolveConflict(${p.eligibility_id}, 'override_cleared')" class="flex-1 text-xs py-1.5 bg-emerald-600 text-white rounded-lg font-bold">✓ Confirm Clear</button>
+          <button onclick="resolveConflict(${p.eligibility_id}, 'override_blocked')" class="flex-1 text-xs py-1.5 bg-red-600 text-white rounded-lg font-bold">⛔ Block</button>
+        </div>` : ''}
+      </div>` : ''}
+    </div>`;
+  }
+
+  return `
+  <div>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800">${esc(teamName)}</h2>
+        <p class="text-xs text-slate-400">Game Day Roster · ${roster.length} athletes</p>
+      </div>
+      <button onclick="S.pivotRoster=null;S._rosterLoaded=false;render()" class="text-xs text-blue-600 font-medium">Refresh</button>
+    </div>
+
+    <!-- Summary chips -->
+    <div class="flex gap-2 mb-4 flex-wrap">
+      <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700">✓ ${cleared.length} Cleared</span>
+      ${blocked.length ? `<span class="text-xs font-bold px-3 py-1.5 rounded-full bg-red-100 text-red-700">⛔ ${blocked.length} Blocked</span>` : ''}
+      ${conflicts.length ? `<span class="text-xs font-bold px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 animate-pulse">⚠️ ${conflicts.length} Conflict${conflicts.length !== 1 ? 's' : ''}</span>` : ''}
+      ${unchecked.length ? `<span class="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-500">${unchecked.length} Pending</span>` : ''}
+    </div>
+
+    ${conflicts.length ? `<div class="mb-4"><p class="text-xs font-semibold text-orange-600 uppercase tracking-wider mb-2">Needs Review</p>${conflicts.map(playerCard).join('')}</div>` : ''}
+    ${blocked.length ? `<div class="mb-4"><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2">Blocked</p>${blocked.map(playerCard).join('')}</div>` : ''}
+    ${cleared.length ? `<div class="mb-4"><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">Cleared to Play</p>${cleared.map(playerCard).join('')}</div>` : ''}
+    ${unchecked.length ? `<div class="mb-4"><p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Not Yet Checked</p>${unchecked.map(playerCard).join('')}</div>` : ''}
+  </div>`;
+}
+
 // ── Admin: Reports & Compliance ───────────────────────────────────────────────
 function renderAdminReports() {
   if (S.adminReports) {
@@ -1556,7 +1814,7 @@ render(); // show login immediately while auth check runs
     const user = await GET('/auth/me');
     S.user = user;
     connectSSE();
-    nav(user.role === 'parent' ? 'feed' : user.role === 'teacher' ? 'attendance' : 'admin');
+    nav(landingPage(user.role));
   } catch (e) {
     console.error('Boot error:', e);
     render();
