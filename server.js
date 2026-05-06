@@ -365,7 +365,7 @@ app.get('/api/teacher/sections', requireAuth, requireRole('teacher','admin'), as
                AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
                AND NOT EXISTS (
                  SELECT 1 FROM attendance att
-                 WHERE att.student_id=ss.student_id AND att.date=$3 AND att.status IN ('present','logistically_present')
+                 WHERE att.student_id=ss.student_id AND att.date=$3 AND att.status = 'present'
                )
              )
            ) as lp_count
@@ -388,7 +388,7 @@ app.get('/api/teacher/sections/:id/students', requireAuth, requireRole('teacher'
              AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
              AND NOT EXISTS (
                SELECT 1 FROM attendance att
-               WHERE att.student_id=s.id AND att.date=$2 AND att.status IN ('present','logistically_present')
+               WHERE att.student_id=s.id AND att.date=$2 AND att.status = 'present'
              )
            ) as logistically_present
     FROM students s
@@ -456,7 +456,7 @@ app.get('/api/admin/overview', requireAuth, requireRole('admin','district_admin'
            AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
            AND NOT EXISTS (
              SELECT 1 FROM attendance a
-             WHERE a.student_id=bs.student_id AND a.date=$2 AND a.status IN ('present','logistically_present')
+             WHERE a.student_id=bs.student_id AND a.date=$2 AND a.status = 'present'
            )`, [schoolId, today]),
     query('SELECT * FROM sync_log WHERE school_id=$1 ORDER BY created_at DESC LIMIT 10', [schoolId]),
   ]);
@@ -486,7 +486,7 @@ app.get('/api/admin/students', requireAuth, requireRole('admin','district_admin'
              AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
              AND NOT EXISTS (
                SELECT 1 FROM attendance att
-               WHERE att.student_id=s.id AND att.date=$2 AND att.status IN ('present','logistically_present')
+               WHERE att.student_id=s.id AND att.date=$2 AND att.status = 'present'
              )
            ) as logistically_present
     FROM students s
@@ -496,6 +496,24 @@ app.get('/api/admin/students', requireAuth, requireRole('admin','district_admin'
     LEFT JOIN alerts al ON al.student_id=s.id
     WHERE s.school_id=$1
     GROUP BY s.id ORDER BY logistically_present DESC, absences DESC, missing_assignments DESC
+  `, [req.session.schoolId, today]);
+  res.json(r.rows.map(row => ({ ...row, name: decrypt(row.name) })));
+});
+
+// LP students visible to both teachers and admins — used by the "Bus Status" panel
+app.get('/api/lp-students', requireAuth, requireRole('teacher','admin','district_admin'), async (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const r = await query(`
+    SELECT s.id, s.name, s.grade, bs.scanned_at, br.route_name
+    FROM bus_scans bs
+    JOIN students s ON s.id=bs.student_id
+    JOIN bus_routes br ON br.id=bs.route_id
+    WHERE s.school_id=$1 AND bs.scan_type='board' AND bs.scanned_at::date=$2
+    AND bs.scanned_at <= NOW() - INTERVAL '30 minutes'
+    AND NOT EXISTS (
+      SELECT 1 FROM attendance a WHERE a.student_id=s.id AND a.date=$2 AND a.status='present'
+    )
+    ORDER BY bs.scanned_at ASC
   `, [req.session.schoolId, today]);
   res.json(r.rows.map(row => ({ ...row, name: decrypt(row.name) })));
 });
