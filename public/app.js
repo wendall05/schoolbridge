@@ -199,133 +199,93 @@ function render() {
 // ── Login ─────────────────────────────────────────────────────────────────────
 function renderLogin() {
   return `
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 p-4">
-    <div class="w-full max-w-md">
+  <div class="min-h-screen flex flex-col bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700">
 
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur mb-4">
-          <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-          </svg>
+    <!-- Login form — centered in upper portion -->
+    <div class="flex-1 flex items-center justify-center p-4">
+      <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur mb-4">
+            <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+          </div>
+          <h1 class="text-3xl font-bold text-white tracking-tight">SchoolBridge</h1>
+          <p class="text-blue-200 mt-1 text-sm">Unified Parent Engagement Hub</p>
         </div>
-        <h1 class="text-3xl font-bold text-white tracking-tight">SchoolBridge</h1>
-        <p class="text-blue-200 mt-1 text-sm">Unified Parent Engagement Hub</p>
+
+        <div class="bg-white rounded-2xl shadow-2xl p-8">
+          <div id="login-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
+          <form onsubmit="doLogin(event)">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-slate-700 mb-1">${t('email')}</label>
+              <input id="login-email" type="email" required placeholder="you@school.edu"
+                class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+            </div>
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-slate-700 mb-1">${t('password')}</label>
+              <input id="login-password" type="password" required placeholder="••••••••"
+                class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+            </div>
+            <button type="submit" id="login-btn" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors">
+              ${t('signin')}
+            </button>
+          </form>
+
+          <div class="mt-4 pt-4 border-t border-slate-100">
+            <p class="text-xs text-slate-400 text-center mb-2">Language / Idioma / 语言</p>
+            <div class="flex flex-wrap justify-center gap-1.5">
+              ${Object.entries(LANGS).map(([k,v]) => `<button onclick="setLang('${k}')" class="text-xs px-2.5 py-1 rounded-full border transition-colors ${S.lang===k?'bg-blue-600 text-white border-blue-600':'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}">${v}</button>`).join('')}
+            </div>
+          </div>
+        </div>
       </div>
-
-      <div class="bg-white rounded-2xl shadow-2xl p-8">
-        <div id="login-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
-        <form onsubmit="doLogin(event)">
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-slate-700 mb-1">${t('email')}</label>
-            <input id="login-email" type="email" required placeholder="you@school.edu"
-              class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
-          </div>
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-slate-700 mb-1">${t('password')}</label>
-            <input id="login-password" type="password" required placeholder="••••••••"
-              class="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
-          </div>
-          <button type="submit" id="login-btn" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors">
-            ${t('signin')}
-          </button>
-        </form>
-
-        <!-- Demo tiles -->
-        <div class="mt-6 pt-6 border-t border-slate-100">
-          <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mb-3">Demo Accounts</p>
-          <div class="space-y-2">
-            <button onclick="quickLogin('parent@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">👩‍👦</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Sandra Johnson — Parent</p>
-                  <p class="text-xs text-slate-400">Marcus has CRITICAL alerts · 3 missing assignments</p>
-                </div>
-              </div>
-            </button>
-            <button onclick="quickLogin('rosa@demo.com','parent123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">👩‍👧</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Rosa Williams — Parent</p>
-                  <p class="text-xs text-slate-400">Aaliyah · HIGH alert · attendance concern</p>
-                </div>
-              </div>
-            </button>
-            <button onclick="quickLogin('thompson@lincoln.edu','teacher123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">👨‍🏫</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Mr. Thompson — Math Teacher</p>
-                  <p class="text-xs text-slate-400">Period 1 · 5 students · behavior logging</p>
-                </div>
-              </div>
-            </button>
-            <button onclick="quickLogin('admin@lincoln.edu','admin123')" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">🏫</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-700">Principal Davis — Admin</p>
-                  <p class="text-xs text-slate-400">School overview · reports · sync log</p>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <!-- Operation Pivot accounts -->
-          <p class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider mt-4 mb-3">Operation Pivot</p>
-          <div class="space-y-2">
-            <button onclick="quickLogin('ad@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">🏆</span>
-                <div>
-                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Davis — Athletic Director</p>
-                  <p class="text-xs text-orange-500">3 games today · 1 conflict · 4 blocked</p>
-                </div>
-              </div>
-            </button>
-            <button onclick="quickLogin('coach.football@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">🏈</span>
-                <div>
-                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Williams — Football</p>
-                  <p class="text-xs text-orange-500">vs Riverside High 4:00 PM · 9 cleared · 2 blocked · 1 conflict</p>
-                </div>
-              </div>
-            </button>
-            <button onclick="quickLogin('coach.volleyball@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">🏐</span>
-                <div>
-                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Rivera — Volleyball</p>
-                  <p class="text-xs text-orange-500">vs Central Middle 5:30 PM · 8 cleared · 2 blocked</p>
-                </div>
-              </div>
-            </button>
-            <button onclick="quickLogin('coach.soccer@lincoln.edu','pivot123')" class="w-full py-3 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-left transition-colors group">
-              <div class="flex items-center gap-3">
-                <span class="text-xl">⚽</span>
-                <div>
-                  <p class="text-sm font-semibold text-orange-800 group-hover:text-orange-900">Coach Thompson — Girls Soccer</p>
-                  <p class="text-xs text-orange-500">vs East Side Academy 3:30 PM · all 8 cleared ✓</p>
-                </div>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <!-- Language picker -->
-        <div class="mt-5 pt-4 border-t border-slate-100">
-          <p class="text-xs text-slate-400 text-center mb-2">Language / Idioma / 语言</p>
-          <div class="flex flex-wrap justify-center gap-1.5">
-            ${Object.entries(LANGS).map(([k,v]) => `<button onclick="setLang('${k}')" class="text-xs px-2.5 py-1 rounded-full border transition-colors ${S.lang===k?'bg-blue-600 text-white border-blue-600':'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}">${v}</button>`).join('')}
-          </div>
-        </div>
-
-      </div>
-
-      <p class="text-center text-blue-300 text-xs mt-4">Demo</p>
     </div>
+
+    <!-- Demo accounts — pinned to bottom -->
+    <div class="w-full max-w-md mx-auto px-4 pb-6">
+      <p class="text-xs font-semibold text-blue-300 text-center uppercase tracking-wider mb-3">Quick Demo Login</p>
+
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <button onclick="quickLogin('parent@demo.com','parent123')" class="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left transition-colors">
+          <p class="text-xs font-bold text-white">👩‍👦 Sandra — Parent</p>
+          <p class="text-xs text-blue-200 truncate">CRITICAL alert</p>
+        </button>
+        <button onclick="quickLogin('rosa@demo.com','parent123')" class="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left transition-colors">
+          <p class="text-xs font-bold text-white">👩‍👧 Rosa — Parent</p>
+          <p class="text-xs text-blue-200 truncate">HIGH alert</p>
+        </button>
+        <button onclick="quickLogin('thompson@lincoln.edu','teacher123')" class="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left transition-colors">
+          <p class="text-xs font-bold text-white">👨‍🏫 Mr. Thompson</p>
+          <p class="text-xs text-blue-200 truncate">Teacher</p>
+        </button>
+        <button onclick="quickLogin('admin@lincoln.edu','admin123')" class="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left transition-colors">
+          <p class="text-xs font-bold text-white">🏫 Principal Davis</p>
+          <p class="text-xs text-blue-200 truncate">Admin</p>
+        </button>
+      </div>
+
+      <p class="text-xs font-semibold text-orange-300 text-center uppercase tracking-wider mb-2 mt-3">Operation Pivot</p>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="quickLogin('ad@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
+          <p class="text-xs font-bold text-orange-100">🏆 Coach Davis</p>
+          <p class="text-xs text-orange-300 truncate">Athletic Director</p>
+        </button>
+        <button onclick="quickLogin('coach.football@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
+          <p class="text-xs font-bold text-orange-100">🏈 Coach Williams</p>
+          <p class="text-xs text-orange-300 truncate">Football</p>
+        </button>
+        <button onclick="quickLogin('coach.volleyball@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
+          <p class="text-xs font-bold text-orange-100">🏐 Coach Rivera</p>
+          <p class="text-xs text-orange-300 truncate">Volleyball</p>
+        </button>
+        <button onclick="quickLogin('coach.soccer@lincoln.edu','pivot123')" class="py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-left transition-colors">
+          <p class="text-xs font-bold text-orange-100">⚽ Coach Thompson</p>
+          <p class="text-xs text-orange-300 truncate">Soccer</p>
+        </button>
+      </div>
+    </div>
+
   </div>`;
 }
 
