@@ -4,11 +4,9 @@
  * Offline fallback: serves cached feed data when network unavailable
  */
 
-const CACHE_NAME = 'schoolbridge-v4';
+const CACHE_NAME = 'schoolbridge-v5';
+// Only cache third-party CDN assets — never cache app files (they update constantly)
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/app.js',
   'https://cdn.tailwindcss.com/3.4.17',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
 ];
@@ -47,10 +45,13 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Auth routes: always network
-  if (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/lti/')) return;
+  // App files (HTML, JS) — always network-first so updates are instant
+  if (url.origin === self.location.origin) {
+    event.respondWith(networkFirstWithFeedFallback(request));
+    return;
+  }
 
-  // Static assets: cache-first
+  // Third-party CDN only: cache-first (fonts, Tailwind)
   event.respondWith(cacheFirst(request));
 });
 
