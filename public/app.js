@@ -251,6 +251,14 @@ function renderLogin() {
           </div>
         </div>
 
+        <!-- Language picker -->
+        <div class="mt-5 pt-4 border-t border-slate-100">
+          <p class="text-xs text-slate-400 text-center mb-2">Language / Idioma / 语言</p>
+          <div class="flex flex-wrap justify-center gap-1.5">
+            ${Object.entries(LANGS).map(([k,v]) => `<button onclick="setLang('${k}')" class="text-xs px-2.5 py-1 rounded-full border transition-colors ${S.lang===k?'bg-blue-600 text-white border-blue-600':'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}">${v}</button>`).join('')}
+          </div>
+        </div>
+
       </div>
 
       <p class="text-center text-blue-300 text-xs mt-4">Lincoln Middle School · Syracuse City SD · Demo</p>
@@ -343,16 +351,9 @@ function renderShell() {
           <span class="font-semibold text-slate-800 text-sm">SchoolBridge</span>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span class="text-xs text-slate-400 hidden sm:inline">Live</span>
-        </div>
-        <select onchange="setLang(this.value)" class="text-xs bg-transparent border-none text-slate-400 cursor-pointer focus:outline-none" title="Language">
-          ${Object.entries(LANGS).map(([k,v])=>`<option value="${k}"${S.lang===k?' selected':''}>${v}</option>`).join('')}
-        </select>
+      <div class="flex items-center gap-2">
         <span class="text-xs text-slate-400">${esc(S.user.name)}</span>
-        <button onclick="doLogout()" class="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded">Out</button>
+        <button onclick="doLogout()" class="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded">Sign out</button>
       </div>
     </header>
     <main class="flex-1 overflow-y-auto pb-20">
@@ -490,7 +491,6 @@ function renderFeed() {
         }).join('')}
       </div>` : ''}
 
-      ${renderBusCard(bus, student.transport_status)}
 
       <!-- Attendance Grid -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-3 overflow-hidden">

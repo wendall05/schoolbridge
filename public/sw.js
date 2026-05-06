@@ -1,63 +1,45 @@
-/**
- * SchoolBridge Service Worker — PWA offline support
- * Strategy: cache-first for static assets, network-first for API calls
- * Offline fallback: serves cached feed data when network unavailable
- */
+const CACHE_NAME = 'schoolbridge-v7';
 
-const CACHE_NAME = 'schoolbridge-v6';
-// Only cache third-party CDN assets — never cache app files (they update constantly)
-const STATIC_ASSETS = [
-  'https://cdn.tailwindcss.com/3.4.17',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-];
-
-// ── Install: cache static assets ─────────────────────────────────────────────
+// ── Install ───────────────────────────────────────────────────────────────────
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return Promise.allSettled(
-        STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
-      );
-    }).then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 // ── Activate: clean old caches ────────────────────────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' })))
   );
 });
 
-// ── Fetch: routing strategy ───────────────────────────────────────────────────
+// ── Fetch: only intercept same-origin requests ────────────────────────────────
+// CDN assets (Tailwind, fonts) are left entirely to the browser — no SW interference
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and cross-origin non-CDN requests
   if (request.method !== 'GET') return;
 
-  // API routes: network-first, cache fallback for /api/feed
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirstWithFeedFallback(request));
+  // Let the browser handle all cross-origin requests (CDN, fonts, etc.)
+  if (url.origin !== self.location.origin) return;
+
+  // API feed: network-first, cache for offline fallback
+  if (url.pathname === '/api/feed') {
+    event.respondWith(networkFirstCacheFeed(request));
     return;
   }
 
-  // App files (HTML, JS) — always network-first so updates are instant
-  if (url.origin === self.location.origin) {
-    event.respondWith(networkFirstWithFeedFallback(request));
-    return;
-  }
-
-  // Third-party CDN only: cache-first (fonts, Tailwind)
-  event.respondWith(cacheFirst(request));
+  // All other same-origin requests: network-first, no caching
+  event.respondWith(
+    fetch(request).catch(() => caches.match('/index.html'))
+  );
 });
 
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
+async function networkFirstCacheFeed(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
@@ -66,29 +48,8 @@ async function cacheFirst(request) {
     }
     return response;
   } catch {
-    // Return offline page for navigation requests
-    if (request.mode === 'navigate') {
-      return caches.match('/index.html');
-    }
-    return new Response('Offline', { status: 503 });
-  }
-}
-
-async function networkFirstWithFeedFallback(request) {
-  const url = new URL(request.url);
-  try {
-    const response = await fetch(request);
-    // Cache successful feed responses for offline use
-    if (response.ok && url.pathname === '/api/feed') {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    // Offline: return cached feed if available
     const cached = await caches.match(request);
     if (cached) {
-      // Add offline header so app can show stale data banner
       const headers = new Headers(cached.headers);
       headers.set('X-Served-From-Cache', 'true');
       const body = await cached.blob();
@@ -98,40 +59,5 @@ async function networkFirstWithFeedFallback(request) {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });
-  }
-}
-
-// ── Background sync: queue justification submissions when offline ──────────────
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-justifications') {
-    event.waitUntil(flushOfflineQueue());
-  }
-});
-
-async function flushOfflineQueue() {
-  const cache = await caches.open(CACHE_NAME);
-  const queueStr = await cache.match('/__offline-queue__');
-  if (!queueStr) return;
-
-  const queue = await queueStr.json();
-  const remaining = [];
-
-  for (const item of queue) {
-    try {
-      const res = await fetch(item.url, {
-        method: item.method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item.body),
-      });
-      if (!res.ok) remaining.push(item);
-    } catch {
-      remaining.push(item);
-    }
-  }
-
-  if (remaining.length) {
-    await cache.put('/__offline-queue__', new Response(JSON.stringify(remaining)));
-  } else {
-    await cache.delete('/__offline-queue__');
   }
 }
