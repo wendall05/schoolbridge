@@ -1091,38 +1091,29 @@ function renderAdmin() {
         { label:'Teachers',          value: d.teachers,     color:'text-slate-700' },
         { label:'Absent Today',      value: d.absent_today, color:'text-red-600',   nav:'admin-students', filter:'absent' },
         { label:'Alerts Today',      value: d.alerts_today, color:'text-amber-600', nav:'admin-students', filter:'alerts' },
+        { label:'Bus Alerts',        value: lpList.length,  color: lpList.length > 0 ? 'text-orange-500' : 'text-slate-700', nav:'admin-students', filter:'lp' },
       ].map(s => `
-      <div onclick="${s.nav ? `nav('${s.nav}', {filter:'${s.filter||''}'})` : ''}" class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm ${s.nav ? 'cursor-pointer hover:border-blue-200 hover:shadow-md transition-all' : ''}">
+      <div onclick="${s.nav ? `nav('${s.nav}', {filter:'${s.filter||''}'})` : ''}" class="bg-white rounded-2xl p-4 border ${s.label==='Bus Alerts'&&lpList.length>0?'border-orange-200':'border-slate-100'} shadow-sm ${s.nav ? 'cursor-pointer hover:border-blue-200 hover:shadow-md transition-all' : ''}">
         <div class="text-3xl font-black ${s.color}">${s.value ?? '—'}</div>
         <div class="text-xs text-slate-400 mt-0.5 font-medium">${s.label}</div>
       </div>`).join('')}
     </div>
 
-    <!-- Bus Alert box — always visible, shows count + student list -->
-    <div class="mb-4 rounded-2xl overflow-hidden shadow-sm border ${lpList.length > 0 ? 'border-orange-300' : 'border-slate-100'}">
-      <div class="px-4 py-3 flex items-center justify-between ${lpList.length > 0 ? 'bg-orange-500 text-white' : 'bg-white'}">
-        <div class="flex items-center gap-2">
-          <span class="text-lg">🚌</span>
-          <span class="font-black text-sm uppercase tracking-wide">Bus Alert</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-2xl font-black">${lpList.length}</span>
-          <span class="text-xs ${lpList.length > 0 ? 'text-orange-100' : 'text-slate-400'}">on bus / not in class</span>
-        </div>
-      </div>
-      ${lpList.length > 0 ? lpList.map(s => {
-        const scanTime = s.scanned_at ? new Date(s.scanned_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+    <!-- LP student list — compact, only shown when students are on bus -->
+    ${lpList.length > 0 ? `
+    <div class="mb-4 bg-orange-50 rounded-2xl border border-orange-200 overflow-hidden">
+      ${lpList.map(s => {
         const minsAgo = s.scanned_at ? Math.round((Date.now()-new Date(s.scanned_at))/60000) : 0;
         return `
-      <div class="px-4 py-3 bg-orange-50 border-t border-orange-200 flex items-center justify-between cursor-pointer hover:bg-orange-100" onclick="nav('admin-students',{filter:'lp'})">
+      <div class="px-4 py-3 flex items-center justify-between border-b border-orange-100 last:border-0">
         <div>
-          <p class="text-sm font-semibold text-orange-900">${esc(s.name)}</p>
-          <p class="text-xs text-orange-600">${esc(s.route_name||'Route unknown')} · Scanned ${scanTime} · ${minsAgo} min ago</p>
+          <p class="text-sm font-semibold text-orange-900">🚌 ${esc(s.name)}</p>
+          <p class="text-xs text-orange-500">${esc(s.route_name||'Route unknown')} · ${minsAgo} min ago</p>
         </div>
-        <svg class="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-xs font-bold text-orange-600">${esc(s.grade)}</span>
       </div>`;
-      }).join('') : `<div class="px-4 py-3 bg-white text-xs text-slate-400 text-center border-t border-slate-50">All students accounted for</div>`}
-    </div>
+      }).join('')}
+    </div>` : ''}
 
     <button onclick="runSync()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mb-4 transition-colors shadow-sm">
       ⚡ Run Intervention Check Now
