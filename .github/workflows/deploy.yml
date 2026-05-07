@@ -1,0 +1,19 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Railway
+        run: |
+          curl -sf -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Authorization: Bearer 7d00d8c2-a4f4-4b8d-9a46-9bf051dffd67" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\":\"mutation { serviceInstanceDeploy(serviceId: \\\"e0a5c2c2-6dbf-4ac8-a0e3-5de01591c1d2\\\", environmentId: \\\"38e746b9-2a3d-43c7-849a-25787aa72291\\\", commitSha: \\\"$GITHUB_SHA\\\") }\"}" \
+            | grep -q '"serviceInstanceDeploy":true' && echo "Deploy triggered for $GITHUB_SHA" || echo "Deploy failed"
