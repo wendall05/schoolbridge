@@ -2,8 +2,34 @@
 const S = {
   user: null, page: 'login', params: {}, history: [],
   feed: null, messages: null, sections: null, adminData: null, adminStudents: null,
+  transitStatus: null,
   lang: localStorage.getItem('sb_lang') || navigator.language.split('-')[0] || 'en',
 };
+
+// ── Transit polling (45-second interval while parent is on feed) ──────────────
+let _transitInterval = null;
+
+function startTransitPolling() {
+  if (_transitInterval) return;
+  fetchTransitStatus();
+  _transitInterval = setInterval(fetchTransitStatus, 45000);
+}
+
+function stopTransitPolling() {
+  if (_transitInterval) { clearInterval(_transitInterval); _transitInterval = null; }
+}
+
+async function fetchTransitStatus() {
+  try {
+    const data = await GET('/api/parent/transit-status');
+    const prev = JSON.stringify(S.transitStatus);
+    S.transitStatus = data;
+    if (JSON.stringify(data) !== prev) render();
+  } catch (e) {
+    console.error('[transit] Fetch failed:', e.message);
+    if (S.transitStatus === null) { S.transitStatus = []; render(); }
+  }
+}
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
 const LANGS = { en:'English', es:'Español', zh:'中文', ht:'Kreyòl', vi:'Tiếng Việt', ar:'العربية', ko:'한국어', pt:'Português' };
@@ -57,6 +83,8 @@ function nav(page, params = {}) {
   if (S.page && S.page !== page) S.history.push({ page: S.page, params: S.params });
   if (S.history.length > 30) S.history.shift();
   S.page = page; S.params = params; S.sidebarOpen = false;
+  // Stop transit polling when leaving the parent feed
+  if (page !== 'feed') stopTransitPolling();
   render(); window.scrollTo(0, 0);
 }
 function goBack() {
@@ -157,6 +185,78 @@ function renderBusCard(bus, studentTransportStatus) {
       <div class="mt-3 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 flex items-center gap-2">
         <span class="text-orange-500 text-base flex-shrink-0">⚠️</span>
         <p class="text-xs text-orange-700 font-medium">Scanned on bus — not yet marked present in class. School has been notified.</p>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Athletic transit card (Operation Pivot bus bridge) ────────────────────────
+function renderTransitCard(transit) {
+  const TRANSIT_STEPS = [
+    { key: 'school',    label: 'School',     icon: '🏫' },
+    { key: 'on_bus',    label: 'En Route',   icon: '🚌' },
+    { key: 'at_venue',  label: 'At Venue',   icon: '🏟️' },
+    { key: 'returning', label: 'Returning',  icon: '🔄' },
+    { key: 'returned',  label: 'Back',       icon: '✅' },
+  ];
+
+  const STATUS_CONFIG = {
+    school:    { emoji: '📋', label: 'Scheduled Trip — Not Yet Departed', color: 'border-slate-200 bg-slate-50', headerColor: 'border-slate-100', textColor: 'text-slate-500' },
+    on_bus:    { emoji: '🚌', label: 'En Route to Game',                  color: 'border-blue-200 bg-blue-50',   headerColor: 'border-blue-100',  textColor: 'text-blue-700'  },
+    at_venue:  { emoji: '🏟️', label: 'At the Venue',                      color: 'border-purple-200 bg-purple-50', headerColor: 'border-purple-100', textColor: 'text-purple-700' },
+    returning: { emoji: '🔄', label: 'Returning to School',               color: 'border-amber-200 bg-amber-50', headerColor: 'border-amber-100', textColor: 'text-amber-700' },
+    returned:  { emoji: '✅', label: 'Back at School',                    color: 'border-emerald-200 bg-emerald-50', headerColor: 'border-emerald-100', textColor: 'text-emerald-700' },
+  };
+
+  const status = transit.status || 'school';
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.school;
+  const activeIdx = TRANSIT_STEPS.findIndex(s => s.key === status);
+
+  const stepsHtml = TRANSIT_STEPS.map((s, i) => {
+    const done   = i < activeIdx;
+    const active = i === activeIdx;
+    const dotCls = active ? 'bg-blue-600 ring-4 ring-blue-100'
+                 : done   ? 'bg-emerald-500'
+                 :           'bg-slate-200';
+    const lblCls = active ? 'text-blue-700 font-bold'
+                 : done   ? 'text-emerald-600 font-medium'
+                 :           'text-slate-400';
+    return `
+    <div class="flex flex-col items-center flex-1">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center text-sm ${dotCls} transition-all">
+        ${done ? '✓' : s.icon}
+      </div>
+      <span class="text-xs mt-1 ${lblCls}" style="font-size:10px">${s.label}</span>
+    </div>`;
+  }).join('');
+
+  const lineHtml = TRANSIT_STEPS.slice(0, -1).map((_, i) => {
+    const filled = i < activeIdx;
+    return `<div class="flex-1 h-1 rounded-full mx-0.5 ${filled ? 'bg-emerald-400' : 'bg-slate-200'} self-center" style="margin-top:-14px"></div>`;
+  }).join('');
+
+  const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null;
+  const departedStr  = fmtTime(transit.departed_at);
+  const etaStr       = fmtTime(transit.estimated_return);
+  const gameTimeStr  = transit.game_time ? fmtTime(transit.game_time) : null;
+
+  return `
+  <div class="bg-white rounded-2xl shadow-sm border ${cfg.color} mb-3 overflow-hidden">
+    <div class="px-4 py-3 border-b ${cfg.headerColor} flex items-center justify-between">
+      <span class="font-semibold text-sm ${cfg.textColor}">${cfg.emoji} ${esc(transit.student_name)} — ${cfg.label}</span>
+    </div>
+    <div class="px-4 py-3">
+      ${transit.game_opponent ? `<p class="text-xs text-slate-500 mb-3 font-medium">Varsity ${esc(transit.sport || 'Athletics')} @ ${esc(transit.game_opponent)}${gameTimeStr ? ' · ' + gameTimeStr : ''}</p>` : ''}
+      <div class="flex items-start relative">
+        ${stepsHtml}
+      </div>
+      <div class="flex px-3.5 -mt-3">
+        ${lineHtml}
+      </div>
+      ${(departedStr || etaStr) ? `
+      <div class="flex items-center justify-between mt-3 px-1">
+        ${departedStr  ? `<span class="text-xs text-slate-500">Departed: <span class="font-semibold text-slate-700">${departedStr}</span></span>` : '<span></span>'}
+        ${etaStr       ? `<span class="text-xs text-slate-500">ETA Return: <span class="font-semibold text-slate-700">${etaStr}</span></span>`    : '<span></span>'}
       </div>` : ''}
     </div>
   </div>`;
@@ -378,7 +478,8 @@ function renderShell() {
 async function doLogout() {
   await POST('/auth/logout');
   if (_sse) { _sse.close(); _sse = null; }
-  S.user = null; S.page = 'login'; S.history = []; S.feed = null; S.athleteStatus = undefined; S._feedLoaded = false; S._athleteStatusLoading = false;
+  stopTransitPolling();
+  S.user = null; S.page = 'login'; S.history = []; S.feed = null; S.athleteStatus = undefined; S.transitStatus = null; S._feedLoaded = false; S._athleteStatusLoading = false;
   render();
 }
 
@@ -403,9 +504,13 @@ function renderFeed() {
       .catch(() => { S.athleteStatus = []; S._athleteStatusLoading = false; });
   }
 
+  // Start transit polling (no-op if already running)
+  startTransitPolling();
+
   return S.feed.map(child => {
     const { student, alerts, attendance, grades, upcoming, behavior, shadow, bus } = child;
     const athleteGames = (S.athleteStatus || []).filter(a => a.student_id === student.id);
+    const transitRecords = (S.transitStatus || []).filter(t => String(t.schoolbridge_student_id) === String(student.id));
     const urgentAlerts = alerts.filter(a => a.priority === 'critical' || a.priority === 'high');
     const infoAlerts   = alerts.filter(a => a.priority === 'low');
     const presentDays  = attendance.filter(a => a.status === 'present').length;
@@ -453,6 +558,8 @@ function renderFeed() {
           </div>
         </div>
       </div>` : ''}
+
+      ${transitRecords.map(t => renderTransitCard(t)).join('')}
 
       ${athleteGames.map(g => {
         const sport = g.sport || '';

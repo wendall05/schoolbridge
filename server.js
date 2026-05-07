@@ -1208,6 +1208,62 @@ app.get('/api/parent/athlete-status', requireAuth, requireRole('parent'), async 
   } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
 });
 
+// ── Parent: Transit Status (Operation Pivot bus bridge) ───────────────────────
+app.get('/api/parent/transit-status', requireAuth, requireRole('parent'), async (req, res) => {
+  try {
+    const PIVOT_URL = process.env.OPERATION_PIVOT_URL || 'https://operation-pivot-production.up.railway.app';
+    const BRIDGE_KEY = process.env.BRIDGE_API_KEY;
+
+    // Graceful degradation: if integration is not configured, return empty
+    if (!PIVOT_URL || !BRIDGE_KEY) return res.json([]);
+
+    // Get parent's students who are athletes
+    const athleteStudents = await query(`
+      SELECT s.id AS student_id, s.name AS student_name, s.grade
+      FROM parent_students ps
+      JOIN students s ON s.id = ps.student_id
+      JOIN athlete_profiles ap ON ap.student_id = s.id AND ap.is_active = true
+      WHERE ps.parent_id = $1
+    `, [req.session.userId]);
+
+    if (!athleteStudents.rows.length) return res.json([]);
+
+    // Fetch transit data from Operation Pivot bridge endpoint
+    let transitData;
+    try {
+      const r = await fetch(`${PIVOT_URL}/api/bridge/bus-transit`, {
+        headers: { 'x-bridge-api-key': BRIDGE_KEY },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) {
+        console.error(`[transit] Pivot bridge returned ${r.status}`);
+        return res.json([]);
+      }
+      transitData = await r.json();
+    } catch (fetchErr) {
+      console.error(`[transit] Pivot bridge fetch failed: ${fetchErr.message}`);
+      return res.json([]);
+    }
+
+    if (!Array.isArray(transitData)) return res.json([]);
+
+    // Match transit records to this parent's students by schoolbridge_student_id === student.id
+    const studentIds = new Set(athleteStudents.rows.map(s => String(s.student_id)));
+    const matched = transitData
+      .filter(t => t.schoolbridge_student_id && studentIds.has(String(t.schoolbridge_student_id)))
+      .map(t => {
+        const student = athleteStudents.rows.find(s => String(s.student_id) === String(t.schoolbridge_student_id));
+        return {
+          ...t,
+          student_name: student ? decrypt(student.student_name) : t.athlete_name,
+          grade: student?.grade || null,
+        };
+      });
+
+    res.json(matched);
+  } catch (e) { res.status(500).json({ error: safeError(e, req.path) }); }
+});
+
 // ── Bridge API (Operation Pivot ↔ SchoolBridge) ───────────────────────────────
 app.use('/api/bridge', bridgeRouter);
 
