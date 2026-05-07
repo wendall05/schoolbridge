@@ -203,6 +203,66 @@ async function loadPivotSandboxData(db, schoolId) {
     console.error('[pivot-sandbox] eligibility pulse error:', e.message)
   );
 
+  // ── Link Operation Pivot athletes to SchoolBridge parents ───────────────────
+  // Each demo parent gets one extra child whose name matches an OP athlete.
+  // This wires the bus-transit bridge so parents see live transit cards.
+  // OP athletes: Marcus Johnson (id:1, basketball), Darius Cole (id:6, basketball),
+  //              Aaliyah Foster (id:7, women's basketball)
+  const pivotKids = [
+    // { parentEmail, studentName, opAthleteName }
+    { parentEmail: 'parent@demo.com', studentName: 'Darius Cole',    opAthleteName: 'Darius Cole'    },
+    { parentEmail: 'rosa@demo.com',   studentName: 'Aaliyah Foster',  opAthleteName: 'Aaliyah Foster'  },
+  ];
+
+  const pivotLinks = []; // will send to OP bridge
+  for (const { parentEmail, studentName, opAthleteName } of pivotKids) {
+    // Find parent
+    const pR = await db.query(`SELECT id FROM users WHERE email=$1 AND school_id=$2`, [parentEmail, schoolId]);
+    if (!pR.rows.length) continue;
+    const parentId = pR.rows[0].id;
+
+    // Get or create student
+    let stuId;
+    const existS = await db.query(`SELECT id FROM students WHERE name=$1 AND school_id=$2`, [studentName, schoolId]);
+    if (existS.rows.length) {
+      stuId = existS.rows[0].id;
+    } else {
+      const sR = await db.query(
+        `INSERT INTO students (school_id, name, grade) VALUES ($1,$2,'8th') RETURNING id`,
+        [schoolId, studentName]
+      );
+      stuId = sR.rows[0].id;
+    }
+
+    // Link student to parent (idempotent)
+    await db.query(
+      `INSERT INTO parent_students (parent_id, student_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+      [parentId, stuId]
+    );
+
+    pivotLinks.push({ athlete_name: opAthleteName, schoolbridge_student_id: stuId });
+  }
+
+  // Call OP bridge to set schoolbridge_student_id on those athletes
+  if (pivotLinks.length) {
+    const PIVOT_URL = process.env.OPERATION_PIVOT_URL || 'https://operation-pivot-production.up.railway.app';
+    const BRIDGE_KEY = process.env.BRIDGE_API_KEY;
+    if (PIVOT_URL && BRIDGE_KEY) {
+      try {
+        const lr = await fetch(`${PIVOT_URL}/api/bridge/athletes/link`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-bridge-api-key': BRIDGE_KEY },
+          body: JSON.stringify({ links: pivotLinks }),
+          signal: AbortSignal.timeout(8000),
+        });
+        const ld = await lr.json();
+        console.log(`[pivot-sandbox] OP athlete link result:`, ld);
+      } catch (e) {
+        console.error('[pivot-sandbox] OP athlete link failed:', e.message);
+      }
+    }
+  }
+
   console.log(`[pivot-sandbox] ✓ 3 games live for ${today} — Football (1 conflict, 2 blocked), Volleyball (2 blocked), Soccer (all clear)`);
   console.log('[pivot-sandbox] Demo logins: ad@lincoln.edu / pivot123  |  coach.football@lincoln.edu / pivot123');
 
