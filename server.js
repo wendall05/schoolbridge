@@ -1217,12 +1217,12 @@ app.get('/api/parent/transit-status', requireAuth, requireRole('parent'), async 
     // Graceful degradation: if integration is not configured, return empty
     if (!PIVOT_URL || !BRIDGE_KEY) return res.json([]);
 
-    // Get parent's students who are athletes
+    // Get all of this parent's students — OP transit is the source of truth for who's on a bus,
+    // so we don't filter by SchoolBridge athlete_profiles here.
     const athleteStudents = await query(`
       SELECT s.id AS student_id, s.name AS student_name, s.grade
       FROM parent_students ps
       JOIN students s ON s.id = ps.student_id
-      JOIN athlete_profiles ap ON ap.student_id = s.id AND ap.is_active = true
       WHERE ps.parent_id = $1
     `, [req.session.userId]);
 
