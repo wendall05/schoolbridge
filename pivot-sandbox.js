@@ -61,6 +61,9 @@ async function loadPivotSandboxData(db, schoolId) {
   const socTeamId = await upsertTeam('Girls Soccer',     'soccer',      socCoachId);
 
   // ── Game events for today ────────────────────────────────────────────────────
+  // Roll forward any stale game dates from previous days to today
+  await db.query(`UPDATE game_events SET game_date=$1 WHERE school_id=$2 AND game_date < $1`, [today, schoolId]);
+
   async function upsertGame(teamId, opponent, time, location, isHome) {
     const existing = await db.query(`SELECT id FROM game_events WHERE school_id=$1 AND team_id=$2 AND game_date=$3`, [schoolId, teamId, today]);
     if (existing.rows.length) return existing.rows[0].id;

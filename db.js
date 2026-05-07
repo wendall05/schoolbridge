@@ -295,7 +295,8 @@ async function initDb() {
       route_name TEXT NOT NULL,
       am_arrival_expected TIME,
       pm_departure_expected TIME,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (school_id, route_name)
     );
 
     CREATE TABLE IF NOT EXISTS bus_stops (

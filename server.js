@@ -1318,15 +1318,13 @@ async function patchSandboxBusData(schoolId) {
   if (!marcusR.rows.length) return;
   const marcusId = marcusR.rows[0].id;
 
-  // Create route if missing
+  // Create route if missing — ON CONFLICT on (school_id, route_name) unique constraint
   const routeR = await query(`
     INSERT INTO bus_routes (school_id, route_name, am_arrival_expected, pm_departure_expected)
     VALUES ($1, 'Route 12 — East Side', '07:45', '15:30')
-    ON CONFLICT DO NOTHING RETURNING id
+    ON CONFLICT (school_id, route_name) DO UPDATE SET am_arrival_expected='07:45' RETURNING id
   `, [schoolId]);
-  const routeId = routeR.rows.length
-    ? routeR.rows[0].id
-    : (await query(`SELECT id FROM bus_routes WHERE school_id=$1 LIMIT 1`, [schoolId])).rows[0].id;
+  const routeId = routeR.rows[0].id;
 
   // Create stop if missing
   const stopR = await query(`
