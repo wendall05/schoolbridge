@@ -52,7 +52,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 app.use(session({
   store: new pgSession({ pool, tableName: 'session', createTableIfMissing: true }),
-  secret: process.env.SESSION_SECRET || 'sb-secret-2026',
+  secret: process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('FATAL: SESSION_SECRET must be set in production'); })() : 'sb-dev-only'),
   resave: false,
   saveUninitialized: false,
   cookie: {
